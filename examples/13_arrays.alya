@@ -1,0 +1,40 @@
+; Array Operations
+; Demonstrates array indexing using memory
+
+; Array base address
+@array_base := 2000
+
+; Store values in array
+@index := 0
+@value := 10
+@array_base[@index] := @value
+
+@index := 1
+@value := 20
+@array_base[@index] := @value
+
+@index := 2
+@value := 30
+@array_base[@index] := @value
+
+@index := 3
+@value := 40
+@array_base[@index] := @value
+
+@index := 4
+@value := 50
+@array_base[@index] := @value
+
+; Read values back
+@index := 0
+loop_start:
+    if @index >= 5 goto loop_end
+    
+    @value := @array_base[@index]
+    print @value
+    
+    @index += 1
+    goto loop_start
+
+loop_end:
+    halt

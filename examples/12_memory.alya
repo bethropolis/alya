@@ -1,0 +1,32 @@
+; Memory Operations
+; Demonstrates load and store instructions
+
+; Store some values in memory
+@addr := 1000
+@value := 42
+
+store @value at @addr
+
+; Store more values
+@addr := 1008
+@value := 99
+store @value at @addr
+
+@addr := 1016
+@value := 123
+store @value at @addr
+
+; Load them back
+@addr := 1000
+@result := load @addr
+print @result      ; Should print 42
+
+@addr := 1008
+@result := load @addr
+print @result      ; Should print 99
+
+@addr := 1016
+@result := load @addr
+print @result      ; Should print 123
+
+halt

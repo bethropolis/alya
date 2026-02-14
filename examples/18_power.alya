@@ -1,0 +1,58 @@
+; Power Function
+; Computes base^exponent
+
+goto main
+
+; Function: power
+; Input: @r0 (base), @r1 (exponent)
+; Output: @r0 (base^exponent)
+power:
+    ; Handle base case: exponent == 0
+    @zero := 0
+    if @r1 == @zero goto power_zero
+    
+    ; Initialize result
+    @result := 1
+    @counter := @r1
+    
+power_loop:
+    if @counter == @zero goto power_done
+    
+    @result := @result * @r0
+    @counter -= 1
+    goto power_loop
+
+power_zero:
+    @r0 := 1
+    return
+
+power_done:
+    @r0 := @result
+    return
+
+main:
+    ; Test 2^3 = 8
+    @r0 := 2
+    @r1 := 3
+    call power
+    print @r0
+    
+    ; Test 5^4 = 625
+    @r0 := 5
+    @r1 := 4
+    call power
+    print @r0
+    
+    ; Test 10^0 = 1
+    @r0 := 10
+    @r1 := 0
+    call power
+    print @r0
+    
+    ; Test 3^5 = 243
+    @r0 := 3
+    @r1 := 5
+    call power
+    print @r0
+    
+    halt

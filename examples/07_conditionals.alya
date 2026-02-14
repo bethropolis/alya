@@ -1,0 +1,35 @@
+; Conditional Branching
+; Demonstrates if-else logic using jumps
+
+@x := 15
+@y := 10
+
+; Check if x > y
+if @x > @y goto x_greater
+goto x_not_greater
+
+x_greater:
+    @r0 := 1
+    print @r0      ; Print 1 for true
+    goto end
+
+x_not_greater:
+    @r0 := 0
+    print @r0      ; Print 0 for false
+    goto end
+
+end:
+    ; Test equality
+    @a := 42
+    @b := 42
+    
+    if @a == @b goto equal
+    @r1 := 0
+    goto finish
+    
+equal:
+    @r1 := 1
+    
+finish:
+    print @r1      ; Should print 1
+    halt

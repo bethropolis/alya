@@ -1,0 +1,68 @@
+; Prime Number Checker
+; Checks if a number is prime
+
+goto main
+
+; Function: is_prime
+; Input: @r0 (n)
+; Output: @r0 (1 if prime, 0 if not)
+is_prime:
+    ; Handle special cases
+    @two := 2
+    if @r0 < @two goto not_prime
+    if @r0 == @two goto prime
+    
+    ; Check if even
+    @remainder := @r0 % @two
+    @zero := 0
+    if @remainder == @zero goto not_prime
+    
+    ; Check divisors from 3 to sqrt(n)
+    @divisor := 3
+    
+check_loop:
+    ; Calculate divisor * divisor
+    @divisor_squared := @divisor * @divisor
+    
+    ; If divisor^2 > n, we're done (n is prime)
+    if @divisor_squared > @r0 goto prime
+    
+    ; Check if n % divisor == 0
+    @remainder := @r0 % @divisor
+    if @remainder == @zero goto not_prime
+    
+    ; Try next odd divisor
+    @divisor += 2
+    goto check_loop
+
+prime:
+    @r0 := 1
+    return
+
+not_prime:
+    @r0 := 0
+    return
+
+main:
+    ; Test some numbers
+    @r0 := 2
+    call is_prime
+    print @r0          ; 1 (prime)
+    
+    @r0 := 17
+    call is_prime
+    print @r0          ; 1 (prime)
+    
+    @r0 := 20
+    call is_prime
+    print @r0          ; 0 (not prime)
+    
+    @r0 := 29
+    call is_prime
+    print @r0          ; 1 (prime)
+    
+    @r0 := 100
+    call is_prime
+    print @r0          ; 0 (not prime)
+    
+    halt

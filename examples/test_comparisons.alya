@@ -1,0 +1,73 @@
+; Comparison Operations Test
+; Tests all conditional jump variants
+
+goto main
+
+main:
+    ; Test: Greater Than (>)
+    @a := 10
+    @b := 5
+    if @a > @b goto test1_pass
+    @r0 := 0
+    goto test1_end
+test1_pass:
+    @r0 := 1
+test1_end:
+    print @r0          ; Should print 1
+    
+    ; Test: Less Than (<)
+    @a := 5
+    @b := 10
+    if @a < @b goto test2_pass
+    @r0 := 0
+    goto test2_end
+test2_pass:
+    @r0 := 1
+test2_end:
+    print @r0          ; Should print 1
+    
+    ; Test: Greater or Equal (>=)
+    @a := 10
+    @b := 10
+    if @a >= @b goto test3_pass
+    @r0 := 0
+    goto test3_end
+test3_pass:
+    @r0 := 1
+test3_end:
+    print @r0          ; Should print 1
+    
+    ; Test: Less or Equal (<=)
+    @a := 5
+    @b := 5
+    if @a <= @b goto test4_pass
+    @r0 := 0
+    goto test4_end
+test4_pass:
+    @r0 := 1
+test4_end:
+    print @r0          ; Should print 1
+    
+    ; Test: Equal (==)
+    @a := 42
+    @b := 42
+    if @a == @b goto test5_pass
+    @r0 := 0
+    goto test5_end
+test5_pass:
+    @r0 := 1
+test5_end:
+    print @r0          ; Should print 1
+    
+    ; Test: Not Equal (!=)
+    @a := 10
+    @b := 20
+    if @a != @b goto test6_pass
+    @r0 := 0
+    goto test6_end
+test6_pass:
+    @r0 := 1
+test6_end:
+    print @r0          ; Should print 1
+    
+    halt

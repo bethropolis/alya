@@ -1,0 +1,6 @@
+; Hello World - Simplest possible program
+; Prints a single number
+
+@r0 := 42
+print @r0
+halt

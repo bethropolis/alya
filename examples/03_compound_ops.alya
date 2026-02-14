@@ -1,0 +1,27 @@
+; Compound Assignment Operations
+; Demonstrates +=, -=, *=, /= operators
+
+; Initialize counter
+@counter := 0
+print @counter      ; 0
+
+; Increment
+@counter += 1
+print @counter      ; 1
+
+@counter += 5
+print @counter      ; 6
+
+; Decrement
+@counter -= 2
+print @counter      ; 4
+
+; Multiply
+@counter *= 3
+print @counter      ; 12
+
+; Divide
+@counter /= 4
+print @counter      ; 3
+
+halt

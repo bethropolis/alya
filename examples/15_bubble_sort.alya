@@ -1,0 +1,89 @@
+; Bubble Sort
+; Sorts an array of numbers
+
+goto main
+
+; Array data section (in memory)
+; We'll use addresses 3000-3040 for a 5-element array
+
+main:
+    ; Initialize array with unsorted values
+    @array := 3000
+    
+    @index := 0
+    @array[@index] := 64
+    
+    @index := 1
+    @array[@index] := 34
+    
+    @index := 2
+    @array[@index] := 25
+    
+    @index := 3
+    @array[@index] := 12
+    
+    @index := 4
+    @array[@index] := 22
+    
+    @array_size := 5
+    
+    ; Print unsorted array
+    @i := 0
+print_unsorted:
+    if @i >= @array_size goto start_sort
+    @value := @array[@i]
+    print @value
+    @i += 1
+    goto print_unsorted
+
+start_sort:
+    ; Bubble sort algorithm
+    ; for i = 0 to n-1
+    ;   for j = 0 to n-i-1
+    ;     if arr[j] > arr[j+1] swap them
+    
+    @i := 0
+outer_loop:
+    if @i >= @array_size goto sort_done
+    
+    @j := 0
+inner_loop:
+    @temp := @array_size
+    @temp -= @i
+    @temp -= 1
+    if @j >= @temp goto outer_next
+    
+    ; Load arr[j] and arr[j+1]
+    @val_j := @array[@j]
+    
+    @j_plus_1 := @j
+    @j_plus_1 += 1
+    @val_j_plus_1 := @array[@j_plus_1]
+    
+    ; Compare
+    if @val_j <= @val_j_plus_1 goto inner_next
+    
+    ; Swap
+    @array[@j] := @val_j_plus_1
+    @array[@j_plus_1] := @val_j
+    
+inner_next:
+    @j += 1
+    goto inner_loop
+
+outer_next:
+    @i += 1
+    goto outer_loop
+
+sort_done:
+    ; Print sorted array
+    @i := 0
+print_sorted:
+    if @i >= @array_size goto end
+    @value := @array[@i]
+    print @value
+    @i += 1
+    goto print_sorted
+
+end:
+    halt

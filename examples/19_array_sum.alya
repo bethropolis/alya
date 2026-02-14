@@ -1,0 +1,37 @@
+; Sum of Array Elements
+; Computes the sum of all elements in an array
+
+; Initialize array
+@array := 4000
+@size := 10
+
+; Fill array with values 1, 2, 3, ..., 10
+@i := 0
+fill_loop:
+    if @i >= @size goto fill_done
+    @value := @i
+    @value += 1
+    @array[@i] := @value
+    @i += 1
+    goto fill_loop
+
+fill_done:
+    ; Calculate sum
+    @sum := 0
+    @i := 0
+    
+sum_loop:
+    if @i >= @size goto sum_done
+    @value := @array[@i]
+    @sum += @value
+    @i += 1
+    goto sum_loop
+
+sum_done:
+    print @sum         ; Should print 55 (1+2+3+...+10)
+    
+    ; Calculate average (sum / size)
+    @avg := @sum / @size
+    print @avg         ; Should print 5
+    
+    halt

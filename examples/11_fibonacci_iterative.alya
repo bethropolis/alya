@@ -1,0 +1,32 @@
+; Fibonacci Sequence (Iterative)
+; More efficient iterative version
+
+; Print first 15 fibonacci numbers
+@count := 15
+@i := 0
+
+; Initial values
+@prev := 0
+@curr := 1
+
+; Print first number
+print @prev
+
+loop:
+    if @i >= @count goto end
+    
+    ; Print current
+    print @curr
+    
+    ; Calculate next: next = prev + curr
+    @next := @prev + @curr
+    
+    ; Shift values: prev = curr, curr = next
+    @prev := @curr
+    @curr := @next
+    
+    @i += 1
+    goto loop
+
+end:
+    halt

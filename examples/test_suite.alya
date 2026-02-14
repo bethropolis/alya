@@ -1,0 +1,220 @@
+; Comprehensive Test Suite
+; Tests all major instruction categories
+; Each test prints 1 for pass, 0 for fail
+
+goto main
+
+main:
+    ; === DATA MOVEMENT TESTS ===
+    
+    ; Test: Load Immediate
+    @r0 := 42
+    if @r0 == 42 goto test1_pass
+    @result := 0
+    goto test1_end
+test1_pass:
+    @result := 1
+test1_end:
+    print @result
+    
+    ; Test: Move
+    @r1 := @r0
+    if @r1 == 42 goto test2_pass
+    @result := 0
+    goto test2_end
+test2_pass:
+    @result := 1
+test2_end:
+    print @result
+    
+    ; Test: Swap
+    @r2 := 10
+    @r3 := 20
+    @r2 <=> @r3
+    if @r2 == 20 goto test3_pass
+    @result := 0
+    goto test3_end
+test3_pass:
+    if @r3 == 10 goto test3_pass2
+    @result := 0
+    goto test3_end
+test3_pass2:
+    @result := 1
+test3_end:
+    print @result
+    
+    ; === ARITHMETIC TESTS ===
+    
+    ; Test: Addition
+    @r4 := 10
+    @r5 := 20
+    @r6 := @r4 + @r5
+    if @r6 == 30 goto test4_pass
+    @result := 0
+    goto test4_end
+test4_pass:
+    @result := 1
+test4_end:
+    print @result
+    
+    ; Test: Subtraction
+    @r7 := @r6 - @r4
+    if @r7 == 20 goto test5_pass
+    @result := 0
+    goto test5_end
+test5_pass:
+    @result := 1
+test5_end:
+    print @result
+    
+    ; Test: Multiplication
+    @r8 := 7
+    @r9 := 6
+    @r10 := @r8 * @r9
+    if @r10 == 42 goto test6_pass
+    @result := 0
+    goto test6_end
+test6_pass:
+    @result := 1
+test6_end:
+    print @result
+    
+    ; Test: Division
+    @r11 := 100
+    @r12 := 5
+    @r13 := @r11 / @r12
+    if @r13 == 20 goto test7_pass
+    @result := 0
+    goto test7_end
+test7_pass:
+    @result := 1
+test7_end:
+    print @result
+    
+    ; Test: Modulo
+    @r14 := 17
+    @r15 := 5
+    @r0 := @r14 % @r15
+    if @r0 == 2 goto test8_pass
+    @result := 0
+    goto test8_end
+test8_pass:
+    @result := 1
+test8_end:
+    print @result
+    
+    ; === COMPOUND ASSIGNMENT TESTS ===
+    
+    ; Test: Add Assign
+    @r1 := 10
+    @r2 := 5
+    @r1 += @r2
+    if @r1 == 15 goto test9_pass
+    @result := 0
+    goto test9_end
+test9_pass:
+    @result := 1
+test9_end:
+    print @result
+    
+    ; Test: Subtract Assign
+    @r3 := 20
+    @r4 := 7
+    @r3 -= @r4
+    if @r3 == 13 goto test10_pass
+    @result := 0
+    goto test10_end
+test10_pass:
+    @result := 1
+test10_end:
+    print @result
+    
+    ; === BITWISE TESTS ===
+    
+    ; Test: AND
+    @r5 := 0b1100
+    @r6 := 0b1010
+    @r7 := @r5 & @r6
+    if @r7 == 8 goto test11_pass  ; 0b1000 = 8
+    @result := 0
+    goto test11_end
+test11_pass:
+    @result := 1
+test11_end:
+    print @result
+    
+    ; Test: OR
+    @r8 := @r5 | @r6
+    if @r8 == 14 goto test12_pass  ; 0b1110 = 14
+    @result := 0
+    goto test12_end
+test12_pass:
+    @result := 1
+test12_end:
+    print @result
+    
+    ; Test: XOR
+    @r9 := @r5 ^ @r6
+    if @r9 == 6 goto test13_pass  ; 0b0110 = 6
+    @result := 0
+    goto test13_end
+test13_pass:
+    @result := 1
+test13_end:
+    print @result
+    
+    ; Test: Left Shift
+    @r10 := 5
+    @r11 := @r10 << 2
+    if @r11 == 20 goto test14_pass
+    @result := 0
+    goto test14_end
+test14_pass:
+    @result := 1
+test14_end:
+    print @result
+    
+    ; Test: Right Shift
+    @r12 := 20
+    @r13 := @r12 >> 2
+    if @r13 == 5 goto test15_pass
+    @result := 0
+    goto test15_end
+test15_pass:
+    @result := 1
+test15_end:
+    print @result
+    
+    ; === STACK TESTS ===
+    
+    ; Test: Push/Pop
+    @r14 := 99
+    push @r14
+    @r15 := pop
+    if @r15 == 99 goto test16_pass
+    @result := 0
+    goto test16_end
+test16_pass:
+    @result := 1
+test16_end:
+    print @result
+    
+    ; Test: Peek
+    @r0 := 77
+    push @r0
+    @r1 := peek
+    @r2 := pop
+    if @r1 == 77 goto test17_pass
+    @result := 0
+    goto test17_end
+test17_pass:
+    if @r2 == 77 goto test17_pass2
+    @result := 0
+    goto test17_end
+test17_pass2:
+    @result := 1
+test17_end:
+    print @result
+    
+    ; All tests complete
+    halt

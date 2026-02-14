@@ -1,0 +1,59 @@
+; Fibonacci Sequence
+; Computes first N fibonacci numbers
+
+goto main
+
+; Function: fibonacci
+; Input: @r0 (n)
+; Output: @r0 (fib(n))
+fibonacci:
+    ; Base cases
+    @r1 := 0
+    if @r0 == @r1 goto fib_zero
+    
+    @r1 := 1
+    if @r0 == @r1 goto fib_one
+    
+    ; Recursive case: fib(n-1) + fib(n-2)
+    push @r0           ; Save n
+    
+    ; Compute fib(n-1)
+    @r0 -= 1
+    call fibonacci
+    push @r0           ; Save fib(n-1)
+    
+    ; Compute fib(n-2)
+    @r1 := pop         ; Get saved n from first push
+    @r1 -= 1           ; This is actually n-1, we need n
+    @r1 := pop         ; Get original n
+    @r0 := @r1
+    @r0 -= 2
+    call fibonacci
+    
+    ; Add fib(n-1) + fib(n-2)
+    @r1 := pop         ; Get fib(n-1)
+    @r0 := @r0 + @r1
+    return
+
+fib_zero:
+    @r0 := 0
+    return
+
+fib_one:
+    @r0 := 1
+    return
+
+main:
+    ; Print first 10 fibonacci numbers
+    @counter := 0
+    @limit := 10
+
+fib_loop:
+    @r0 := @counter
+    call fibonacci
+    print @r0
+    
+    @counter += 1
+    if @counter < @limit goto fib_loop
+    
+    halt

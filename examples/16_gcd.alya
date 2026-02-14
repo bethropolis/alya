@@ -1,0 +1,53 @@
+; Greatest Common Divisor (GCD)
+; Using Euclidean algorithm
+
+goto main
+
+; Function: gcd
+; Input: @r0 (a), @r1 (b)
+; Output: @r0 (gcd(a, b))
+gcd:
+    ; while b != 0:
+    ;   temp = b
+    ;   b = a % b
+    ;   a = temp
+    
+    @zero := 0
+gcd_loop:
+    if @r1 == @zero goto gcd_done
+    
+    ; temp = b
+    @temp := @r1
+    
+    ; b = a % b
+    @r1 := @r0 % @r1
+    
+    ; a = temp
+    @r0 := @temp
+    
+    goto gcd_loop
+
+gcd_done:
+    ; Result is in @r0
+    return
+
+main:
+    ; Test GCD(48, 18) = 6
+    @r0 := 48
+    @r1 := 18
+    call gcd
+    print @r0          ; Should print 6
+    
+    ; Test GCD(100, 35) = 5
+    @r0 := 100
+    @r1 := 35
+    call gcd
+    print @r0          ; Should print 5
+    
+    ; Test GCD(17, 19) = 1
+    @r0 := 17
+    @r1 := 19
+    call gcd
+    print @r0          ; Should print 1
+    
+    halt

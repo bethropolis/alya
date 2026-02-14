@@ -1,0 +1,38 @@
+; Edge Cases and Corner Cases
+; Tests boundary conditions and special cases
+
+; Test division by itself
+@r0 := 42
+@r1 := @r0 / @r0
+print @r1          ; Should print 1
+
+; Test modulo by itself
+@r2 := @r0 % @r0
+print @r2          ; Should print 0
+
+; Test zero operations
+@r3 := 0
+@r4 := @r3 + @r3
+print @r4          ; Should print 0
+
+@r5 := @r3 * 100
+print @r5          ; Should print 0
+
+; Test identity operations
+@r6 := 100
+@r7 := @r6 + 0
+print @r7          ; Should print 100
+
+@r8 := @r6 * 1
+print @r8          ; Should print 100
+
+@r9 := @r6 - 0
+print @r9          ; Should print 100
+
+; Test boundary values
+@max := 0xFFFFFFFFFFFFFFFF  ; Max u64
+@r10 := 1
+@r11 := @max + @r10         ; Should overflow to 0
+print @r11
+
+halt

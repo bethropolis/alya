@@ -1,0 +1,17 @@
+; Swap Operation
+; Demonstrates register swapping
+
+@a := 100
+@b := 200
+
+debug @a, @b       ; Debug print before swap
+
+; Swap the values
+@a <=> @b
+
+debug @a, @b       ; Debug print after swap
+
+print @a           ; Should print 200
+print @b           ; Should print 100
+
+halt

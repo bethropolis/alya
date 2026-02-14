@@ -1,0 +1,65 @@
+; Find Maximum and Minimum
+; Finds the largest and smallest values in an array
+
+; Initialize array with random-ish values
+@array := 5000
+
+@index := 0
+@array[@index] := 45
+
+@index := 1
+@array[@index] := 12
+
+@index := 2
+@array[@index] := 89
+
+@index := 3
+@array[@index] := 34
+
+@index := 4
+@array[@index] := 67
+
+@index := 5
+@array[@index] := 23
+
+@index := 6
+@array[@index] := 91
+
+@index := 7
+@array[@index] := 56
+
+@size := 8
+
+; Find maximum
+@max := @array[0]
+@i := 1
+
+find_max:
+    if @i >= @size goto max_done
+    @value := @array[@i]
+    if @value <= @max goto next_max
+    @max := @value
+next_max:
+    @i += 1
+    goto find_max
+
+max_done:
+    print @max         ; Should print 91
+
+; Find minimum
+@min := @array[0]
+@i := 1
+
+find_min:
+    if @i >= @size goto min_done
+    @value := @array[@i]
+    if @value >= @min goto next_min
+    @min := @value
+next_min:
+    @i += 1
+    goto find_min
+
+min_done:
+    print @min         ; Should print 12
+
+halt

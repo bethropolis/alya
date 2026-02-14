@@ -1,0 +1,33 @@
+; Function Calls
+; Demonstrates call and return
+
+; Main program starts here
+goto main
+
+; Function: add_ten
+; Input: @r0
+; Output: @r0 (input + 10)
+add_ten:
+    @r1 := 10
+    @r0 := @r0 + @r1
+    return
+
+; Function: multiply_by_two
+; Input: @r0
+; Output: @r0 (input * 2)
+multiply_by_two:
+    @r1 := 2
+    @r0 := @r0 * @r1
+    return
+
+main:
+    ; Call add_ten with argument 5
+    @r0 := 5
+    call add_ten
+    print @r0          ; Should print 15
+    
+    ; Call multiply_by_two with result
+    call multiply_by_two
+    print @r0          ; Should print 30
+    
+    halt

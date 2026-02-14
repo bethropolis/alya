@@ -1,0 +1,33 @@
+; Bitwise Operations
+; Demonstrates AND, OR, XOR, NOT, shift operations
+
+; AND operation
+@r0 := 0b1100      ; 12 in binary
+@r1 := 0b1010      ; 10 in binary
+@r2 := @r0 & @r1   ; Should be 0b1000 = 8
+print @r2
+
+; OR operation
+@r3 := @r0 | @r1   ; Should be 0b1110 = 14
+print @r3
+
+; XOR operation
+@r4 := @r0 ^ @r1   ; Should be 0b0110 = 6
+print @r4
+
+; NOT operation
+@r5 := 0b00001111  ; 15
+@r6 := ~@r5        ; Bitwise NOT
+print @r6
+
+; Left shift
+@r7 := 5
+@r8 := @r7 << 2    ; 5 << 2 = 20
+print @r8
+
+; Right shift
+@r9 := 20
+@r10 := @r9 >> 2   ; 20 >> 2 = 5
+print @r10
+
+halt

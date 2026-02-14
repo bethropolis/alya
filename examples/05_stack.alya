@@ -1,0 +1,27 @@
+; Stack Operations
+; Demonstrates push, pop, and peek
+
+; Push some values onto stack
+@r0 := 10
+@r1 := 20
+@r2 := 30
+
+push @r0
+push @r1
+push @r2
+
+; Peek at top (doesn't remove)
+@r3 := peek
+print @r3          ; Should print 30
+
+; Pop values (LIFO order)
+@r4 := pop
+print @r4          ; Should print 30
+
+@r5 := pop
+print @r5          ; Should print 20
+
+@r6 := pop
+print @r6          ; Should print 10
+
+halt

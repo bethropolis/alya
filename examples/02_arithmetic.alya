@@ -1,0 +1,28 @@
+; Basic Arithmetic
+; Demonstrates basic arithmetic operations
+
+; Addition
+@r0 := 10
+@r1 := 20
+@r2 := @r0 + @r1
+print @r2           ; Should print 30
+
+; Subtraction
+@r3 := @r2 - @r0
+print @r3           ; Should print 20
+
+; Multiplication
+@r4 := @r0 * @r1
+print @r4           ; Should print 200
+
+; Division
+@r5 := @r4 / @r0
+print @r5           ; Should print 20
+
+; Modulo
+@r6 := 17
+@r7 := 5
+@r8 := @r6 % @r7
+print @r8           ; Should print 2
+
+halt

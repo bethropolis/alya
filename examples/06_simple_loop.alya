@@ -1,0 +1,15 @@
+; Simple Loop
+; Count from 0 to 4
+
+@counter := 0
+@limit := 5
+
+loop_start:
+    print @counter
+    @counter += 1
+    
+    ; Continue if counter < limit
+    if @counter < @limit goto loop_start
+
+print @counter     ; Final value: 5
+halt
