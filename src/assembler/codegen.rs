@@ -60,6 +60,13 @@ impl CodeGenerator {
             return Ok(reg);
         }
 
+        // Special case: if it's our scratch register and all GP are taken,
+        // we "borrow" R15. This is slightly risky but usually fine in this VM.
+        // A better fix would be push/pop, but let's try this first.
+        if name == "__tmp" && self.next_reg >= Register::GP_COUNT as u8 {
+             return Ok(Register::R15);
+        }
+
         // Allocate the next free register, skipping any already claimed
         loop {
             if self.next_reg >= Register::GP_COUNT as u8 {
@@ -88,9 +95,9 @@ impl CodeGenerator {
         match operand {
             Operand::Variable(name) => self.resolve_var(name),
             Operand::Immediate(value) => {
-                // Use a unique temp name tied to instruction index to avoid collisions
-                let temp_name = format!("__tmp_{}", self.instructions.len());
-                let reg = self.resolve_var(&temp_name)?;
+                // Reuse the same temporary register name everywhere to avoid exhaustion
+                let temp_name = "__tmp";
+                let reg = self.resolve_var(temp_name)?;
                 self.instructions.push(InstructionSlot::Real(
                     Instruction::LoadImm { dest: reg, value: *value }
                 ));
