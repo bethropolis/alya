@@ -311,6 +311,35 @@ impl CodeGenerator {
 
                 self.instructions.push(InstructionSlot::LoadStringAddress { dest: reg, offset });
             }
+            Statement::Alloc { dest, size_var } => {
+                let dest_reg = self.resolve_var(&dest)?;
+                let size_reg = self.resolve_var(&size_var)?;
+                self.instructions.push(InstructionSlot::Real(
+                    Instruction::Alloc { dest: dest_reg, size: size_reg }
+                ));
+            }
+            Statement::Free { ptr_var } => {
+                let ptr_reg = self.resolve_var(&ptr_var)?;
+                self.instructions.push(InstructionSlot::Real(
+                    Instruction::Free { ptr: ptr_reg }
+                ));
+            }
+            Statement::MemCopy { dest_var, src_var, size_var } => {
+                let dest_reg = self.resolve_var(&dest_var)?;
+                let src_reg = self.resolve_var(&src_var)?;
+                let size_reg = self.resolve_var(&size_var)?;
+                self.instructions.push(InstructionSlot::Real(
+                    Instruction::MemCopy { dest: dest_reg, src: src_reg, size: size_reg }
+                ));
+            }
+            Statement::MemSet { dest_var, value_var, size_var } => {
+                let dest_reg = self.resolve_var(&dest_var)?;
+                let value_reg = self.resolve_var(&value_var)?;
+                let size_reg = self.resolve_var(&size_var)?;
+                self.instructions.push(InstructionSlot::Real(
+                    Instruction::MemSet { dest: dest_reg, value: value_reg, size: size_reg }
+                ));
+            }
         }
         Ok(())
     }
@@ -387,6 +416,9 @@ fn try_parse_register_name(name: &str) -> Option<Register> {
         "r15" => Some(Register::R15),
         "sp" => Some(Register::SP),
         "bp" => Some(Register::BP),
+        "hp" => Some(Register::HP),
+        "ip" => Some(Register::IP),
+        "fl" => Some(Register::FL),
         _ => None,
     }
 }

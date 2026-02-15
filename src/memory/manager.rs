@@ -3,78 +3,152 @@
 use super::MemoryAccess;
 use std::fmt;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MemoryPermission {
+    Read = 0x01,
+    Write = 0x02,
+    Execute = 0x04,
+}
+
+#[derive(Debug, Clone)]
+pub struct Segment {
+    pub name: String,
+    pub start: usize,
+    pub end: usize,
+    pub permissions: u8, // Bitmask of MemoryPermission
+}
+
 /// Main memory storage
 pub struct Memory {
     bytes: Vec<u8>,
+    segments: Vec<Segment>,
 }
 
 impl Memory {
-    /// Create new memory with specified size
+    /// Create new memory with default segments:
+    /// 0x0000 - 0x7FFF: Code (32KB, RX)
+    /// 0x8000 - 0xBFFF: Heap (16KB, RW)
+    /// 0xC000 - 0xFFFF: Stack (16KB, RW)
     pub fn new(size: usize) -> Self {
-        Self {
-            bytes: vec![0; size],
-        }
-    }
+        let mut segments = Vec::new();
+        
+        if size >= 0x10000 {
+            // Code Segment (RX)
+            segments.push(Segment {
+                name: "Code".to_string(),
+                start: 0,
+                end: 0x7FFF,
+                permissions: MemoryPermission::Read as u8 | MemoryPermission::Execute as u8,
+            });
 
-    /// Load program bytecode into memory at address 0
-    pub fn load_program(&mut self, bytecode: &[u8]) -> Result<(), MemoryError> {
-        if bytecode.len() > self.bytes.len() {
-            return Err(MemoryError::ProgramTooLarge {
-                program_size: bytecode.len(),
-                memory_size: self.bytes.len(),
+            // Heap Segment (RW)
+            segments.push(Segment {
+                name: "Heap".to_string(),
+                start: 0x8000,
+                end: 0xBFFF,
+                permissions: MemoryPermission::Read as u8 | MemoryPermission::Write as u8,
+            });
+
+            // Stack Segment (RW)
+            segments.push(Segment {
+                name: "Stack".to_string(),
+                start: 0xC000,
+                end: size.saturating_sub(1),
+                permissions: MemoryPermission::Read as u8 | MemoryPermission::Write as u8,
+            });
+        } else {
+            // For small memory (mostly tests), create one single RWX segment
+            segments.push(Segment {
+                name: "General".to_string(),
+                start: 0,
+                end: size.saturating_sub(1),
+                permissions: MemoryPermission::Read as u8 | MemoryPermission::Write as u8 | MemoryPermission::Execute as u8,
             });
         }
 
-        self.bytes[..bytecode.len()].copy_from_slice(bytecode);
-        Ok(())
+        Self {
+            bytes: vec![0; size],
+            segments,
+        }
     }
 
-    /// Clear all memory
+    /// Clear all memory (set to zero)
     pub fn clear(&mut self) {
         self.bytes.fill(0);
     }
 
-    /// Get a slice of memory for reading
-    pub fn slice(&self, start: usize, len: usize) -> Result<&[u8], MemoryError> {
-        if start + len > self.bytes.len() {
-            return Err(MemoryError::OutOfBounds {
-                address: start,
-                size: self.bytes.len(),
+    /// Load program data into memory at address 0
+    pub fn load_program(&mut self, data: &[u8]) -> Result<(), MemoryError> {
+        if data.len() > self.bytes.len() {
+            return Err(MemoryError::ProgramTooLarge {
+                program_size: data.len(),
+                memory_size: self.bytes.len(),
             });
         }
+
+        self.bytes[..data.len()].copy_from_slice(data);
+        Ok(())
+    }
+
+    /// Check if a memory range has the required permissions
+    pub fn check_access(&self, addr: usize, len: usize, perm: MemoryPermission) -> Result<(), MemoryError> {
+        if addr + len > self.bytes.len() {
+            return Err(MemoryError::OutOfBounds {
+                address: addr,
+                size: self.bytes.len(), // This is actually memory size, but matches error definition
+            });
+        }
+
+        // Find which segment the address falls into
+        for segment in &self.segments {
+            if addr >= segment.start && addr <= segment.end {
+                // Check if the entire range fits in this segment
+                if addr + len - 1 > segment.end {
+                    return Err(MemoryError::SegmentationFault {
+                        address: addr,
+                        message: format!("Access spans multiple segments (end of {} is {:#x})", segment.name, segment.end),
+                    });
+                }
+
+                // Check permissions
+                if (segment.permissions & (perm as u8)) == 0 {
+                    return Err(MemoryError::SegmentationFault {
+                        address: addr,
+                        message: format!("Segment {} does not have {:?} permission", segment.name, perm),
+                    });
+                }
+
+                return Ok(());
+            }
+        }
+
+        Err(MemoryError::SegmentationFault {
+            address: addr,
+            message: "Address does not belong to any segment".to_string(),
+        })
+    }
+
+    /// Get a slice of memory for reading (checked)
+    pub fn slice(&self, start: usize, len: usize) -> Result<&[u8], MemoryError> {
+        self.check_access(start, len, MemoryPermission::Read)?;
         Ok(&self.bytes[start..start + len])
     }
 }
 
 impl MemoryAccess for Memory {
     fn read_byte(&self, addr: usize) -> Result<u8, MemoryError> {
-        self.bytes
-            .get(addr)
-            .copied()
-            .ok_or(MemoryError::OutOfBounds {
-                address: addr,
-                size: self.bytes.len(),
-            })
+        self.check_access(addr, 1, MemoryPermission::Read)?;
+        Ok(self.bytes[addr])
     }
 
     fn write_byte(&mut self, addr: usize, value: u8) -> Result<(), MemoryError> {
-        if addr >= self.bytes.len() {
-            return Err(MemoryError::OutOfBounds {
-                address: addr,
-                size: self.bytes.len(),
-            });
-        }
+        self.check_access(addr, 1, MemoryPermission::Write)?;
         self.bytes[addr] = value;
         Ok(())
     }
 
     fn read_qword(&self, addr: usize) -> Result<u64, MemoryError> {
-        if addr + 8 > self.bytes.len() {
-            return Err(MemoryError::OutOfBounds {
-                address: addr,
-                size: self.bytes.len(),
-            });
-        }
+        self.check_access(addr, 8, MemoryPermission::Read)?;
 
         // Fast path: direct pointer access
         unsafe {
@@ -84,12 +158,7 @@ impl MemoryAccess for Memory {
     }
 
     fn write_qword(&mut self, addr: usize, value: u64) -> Result<(), MemoryError> {
-        if addr + 8 > self.bytes.len() {
-            return Err(MemoryError::OutOfBounds {
-                address: addr,
-                size: self.bytes.len(),
-            });
-        }
+        self.check_access(addr, 8, MemoryPermission::Write)?;
 
         // Fast path: direct pointer access
         unsafe {
@@ -116,6 +185,7 @@ pub enum MemoryError {
     OutOfBounds { address: usize, size: usize },
     ProgramTooLarge { program_size: usize, memory_size: usize },
     Unaligned { address: usize, alignment: usize },
+    SegmentationFault { address: usize, message: String },
 }
 
 impl fmt::Display for MemoryError {
@@ -129,6 +199,9 @@ impl fmt::Display for MemoryError {
             }
             MemoryError::Unaligned { address, alignment } => {
                 write!(f, "Unaligned memory access: address {:#x}, alignment {}", address, alignment)
+            }
+            MemoryError::SegmentationFault { address, message } => {
+                write!(f, "Segmentation fault at {:#x}: {}", address, message)
             }
         }
     }

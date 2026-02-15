@@ -103,6 +103,20 @@ impl Instruction {
                 bytes.push(left.to_u8());
                 bytes.push(right.to_u8());
             }
+
+            Instruction::Alloc { dest, size } => {
+                bytes.push(dest.to_u8());
+                bytes.push(size.to_u8());
+            }
+            Instruction::Free { ptr } => {
+                bytes.push(ptr.to_u8());
+            }
+            Instruction::MemCopy { dest, src, size } |
+            Instruction::MemSet { dest, value: src, size } => {
+                bytes.push(dest.to_u8());
+                bytes.push(src.to_u8());
+                bytes.push(size.to_u8());
+            }
         }
         
         bytes
@@ -155,6 +169,10 @@ impl Instruction {
             Instruction::Call { .. } => Opcode::Call,
             Instruction::Return => Opcode::Return,
             Instruction::Syscall => Opcode::Syscall,
+            Instruction::Alloc { .. } => Opcode::Alloc,
+            Instruction::Free { .. } => Opcode::Free,
+            Instruction::MemCopy { .. } => Opcode::MemCopy,
+            Instruction::MemSet { .. } => Opcode::MemSet,
         }
     }
 
@@ -337,6 +355,36 @@ impl Instruction {
                 let right = Register::from_u8(bytes[pos+1]).map_err(|e| VmError::Execution(e.to_string()))?;
                 pos += 2;
                 Instruction::Compare { left, right }
+            }
+
+            Opcode::Alloc => {
+                if bytes.len() < pos + 2 { return Err(VmError::Execution("Unexpected end of bytecode".to_string())); }
+                let dest = Register::from_u8(bytes[pos]).map_err(|e| VmError::Execution(e.to_string()))?;
+                let size = Register::from_u8(bytes[pos+1]).map_err(|e| VmError::Execution(e.to_string()))?;
+                pos += 2;
+                Instruction::Alloc { dest, size }
+            }
+            Opcode::Free => {
+                if bytes.len() < pos + 1 { return Err(VmError::Execution("Unexpected end of bytecode".to_string())); }
+                let ptr = Register::from_u8(bytes[pos]).map_err(|e| VmError::Execution(e.to_string()))?;
+                pos += 1;
+                Instruction::Free { ptr }
+            }
+            Opcode::MemCopy => {
+                if bytes.len() < pos + 3 { return Err(VmError::Execution("Unexpected end of bytecode".to_string())); }
+                let dest = Register::from_u8(bytes[pos]).map_err(|e| VmError::Execution(e.to_string()))?;
+                let src = Register::from_u8(bytes[pos+1]).map_err(|e| VmError::Execution(e.to_string()))?;
+                let size = Register::from_u8(bytes[pos+2]).map_err(|e| VmError::Execution(e.to_string()))?;
+                pos += 3;
+                Instruction::MemCopy { dest, src, size }
+            }
+            Opcode::MemSet => {
+                if bytes.len() < pos + 3 { return Err(VmError::Execution("Unexpected end of bytecode".to_string())); }
+                let dest = Register::from_u8(bytes[pos]).map_err(|e| VmError::Execution(e.to_string()))?;
+                let value = Register::from_u8(bytes[pos+1]).map_err(|e| VmError::Execution(e.to_string()))?;
+                let size = Register::from_u8(bytes[pos+2]).map_err(|e| VmError::Execution(e.to_string()))?;
+                pos += 3;
+                Instruction::MemSet { dest, value, size }
             }
             
             _ => return Err(VmError::Execution(format!("Unsupported opcode for decoding: {:?}", opcode))),

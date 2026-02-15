@@ -57,6 +57,14 @@ pub enum Instruction {
     LoadIndexed { dest: Register, base_reg: Register, index_reg: Register },
     /// Store to base[index] — address = base_reg + index_reg * 8
     StoreIndexed { src: Register, base_reg: Register, index_reg: Register },
+    /// dst = heap_alloc(size_reg)
+    Alloc { dest: Register, size: Register },
+    /// heap_free(ptr_reg)
+    Free { ptr: Register },
+    /// memcpy(dst_reg, src_reg, size_reg)
+    MemCopy { dest: Register, src: Register, size: Register },
+    /// memset(dst_reg, value_reg, size_reg)
+    MemSet { dest: Register, value: Register, size: Register },
 
     // === Control Flow ===
     /// Unconditional jump to instruction index

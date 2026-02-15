@@ -1,0 +1,9 @@
+; examples/22_mem_protection.alya
+; Should fail with Segmentation Fault (Segment Code does not have Write permission)
+
+; Address 0 is in the Code segment (0x0000 - 0x7FFF)
+@addr := 0
+@val := 1234
+store @val at @addr
+
+halt

@@ -5,9 +5,10 @@
 //! - Stack operations
 //! - Address validation
 
-mod manager;
+pub mod manager;
+pub mod heap;
 pub mod stack;
-mod address;
+pub mod address;
 
 pub use manager::{Memory, MemoryError};
 pub use stack::{Stack, StackError};

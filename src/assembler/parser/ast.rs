@@ -74,6 +74,18 @@ pub enum Statement {
 
     /// Indexed load: @dest := @base[@index]
     LoadIndexed { dest: String, base_var: String, index_var: String },
+
+    /// Heap allocation: @dest := alloc @size
+    Alloc { dest: String, size_var: String },
+
+    /// Heap free: free @ptr
+    Free { ptr_var: String },
+
+    /// Memory copy: memcpy @dest, @src, @size
+    MemCopy { dest_var: String, src_var: String, size_var: String },
+
+    /// Memory set: memset @dest, @value, @size
+    MemSet { dest_var: String, value_var: String, size_var: String },
 }
 
 /// Binary operators

@@ -88,6 +88,10 @@ pub enum Keyword {
     Syscall,
     Nop,
     Unsigned, // New keyword for unsigned comparisons
+    Alloc,
+    Free,
+    MemCopy,
+    MemSet,
 }
 
 /// Tokenize a single line of source code.
@@ -227,6 +231,10 @@ pub fn tokenize_line(line: &str) -> Vec<Token> {
                 "syscall" => Token::Keyword(Keyword::Syscall),
                 "nop" => Token::Keyword(Keyword::Nop),
                 "unsigned" => Token::Keyword(Keyword::Unsigned),
+                "alloc" => Token::Keyword(Keyword::Alloc),
+                "free" => Token::Keyword(Keyword::Free),
+                "memcpy" => Token::Keyword(Keyword::MemCopy),
+                "memset" => Token::Keyword(Keyword::MemSet),
                 _ => Token::Identifier(word),
             };
             tokens.push(token);

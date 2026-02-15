@@ -6,7 +6,8 @@ use crate::instruction::{Instruction, Program};
 use crate::memory::Memory;
 use crate::memory::stack::Stack;
 use super::context::ExecutionContext;
-use super::handlers::{arithmetic, logic, data_move, control, stack as stack_handler, memory as memory_handler};
+use super::handlers::{arithmetic, logic, data_move, control, stack as stack_handler, memory as memory_handler, memory_ext};
+use crate::memory::heap::Heap;
 
 /// Default memory size: 64KB
 const DEFAULT_MEMORY_SIZE: usize = 65536;
@@ -22,6 +23,7 @@ pub struct VM {
     pub ctx: ExecutionContext,
     pub memory: Memory,
     pub stack: Stack,
+    pub heap: Heap,
     pub output: Vec<String>,
     pub print_immediately: bool,
 }
@@ -30,11 +32,13 @@ impl VM {
     /// Create a new VM with default memory size
     pub fn new() -> Self {
         let memory = Memory::new(DEFAULT_MEMORY_SIZE);
-        let stack = Stack::new(DEFAULT_MEMORY_SIZE); // Stack grows down from top
+        let stack = Stack::new(DEFAULT_MEMORY_SIZE);
+        let heap = Heap::new(0x8000, 0x4000); // 16KB from 0x8000
         Self {
             ctx: ExecutionContext::new(),
             memory,
             stack,
+            heap,
             output: Vec::new(),
             print_immediately: true,
         }
@@ -44,10 +48,12 @@ impl VM {
     pub fn with_memory_size(size: usize) -> Self {
         let memory = Memory::new(size);
         let stack = Stack::new(size);
+        let heap = Heap::new(0x8000, 0x4000);
         Self {
             ctx: ExecutionContext::new(),
             memory,
             stack,
+            heap,
             output: Vec::new(),
             print_immediately: true,
         }
@@ -62,6 +68,14 @@ impl VM {
         if let Err(e) = self.memory.load_program(&program.data) {
              return Err(VmError::Execution(format!("Failed to load program data: {}", e)));
         }
+
+        // Initialize heap
+        if let Err(e) = self.heap.init(&mut self.memory) {
+            return Err(VmError::Execution(format!("Failed to initialize heap: {}", e)));
+        }
+
+        // Initialize HP register
+        self.ctx.set_reg(crate::core::Register::HP, 0x8000);
 
         self.output.clear();
         let mut instruction_count: u64 = 0;
@@ -187,6 +201,20 @@ impl VM {
                 memory_handler::handle_store_indexed(&mut self.ctx, &mut self.memory, *src, *base_reg, *index_reg)?;
             }
 
+            // Memory Extensions
+            Instruction::Alloc { dest, size } => {
+                memory_ext::handle_alloc(&mut self.ctx, &self.heap, &mut self.memory, *dest, *size)?;
+            }
+            Instruction::Free { ptr } => {
+                memory_ext::handle_free(&mut self.ctx, &self.heap, &mut self.memory, *ptr)?;
+            }
+            Instruction::MemCopy { dest, src, size } => {
+                memory_ext::handle_memcpy(&mut self.ctx, &mut self.memory, *dest, *src, *size)?;
+            }
+            Instruction::MemSet { dest, value, size } => {
+                memory_ext::handle_memset(&mut self.ctx, &mut self.memory, *dest, *value, *size)?;
+            }
+
             // Control Flow
             Instruction::Jump { target } => {
                 control::handle_jump(&mut self.ctx, *target);
@@ -246,7 +274,7 @@ impl VM {
                 // We can't pass &mut self because self.ctx is already borrowed mutably?
                 // `execute_instruction` takes `&mut self`.
                 // But `self.ctx` is borrowed for `handle_syscall`?
-                // Wait, `handle_syscall(ctx, output, flag)` takes separate borrows.
+                // But `handle_syscall(ctx, output, flag)` takes separate borrows.
                 // `execute_instruction` has `&mut self`.
                 // `self.ctx` is a field. `self.output` is a field.
                 // Rust borrow checker allows splitting borrows if we access fields directly?
@@ -256,9 +284,9 @@ impl VM {
                 // So `instruction` is owned or local ref.
                 
                 // Problem: `handle_xxx(&mut self.ctx, ...)`
-                // If I call `io::handle_syscall(&mut self.ctx, &mut self.output, self.print_immediately)`, it should work
+                // If I call `io::handle_syscall(&mut self.ctx, &self.heap, &mut self.memory, &mut self.output, self.print_immediately)`, it should work
                 // because I'm borrowing disjoint fields of `self`.
-                super::handlers::io::handle_syscall(&mut self.ctx, &self.memory, &mut self.output, self.print_immediately);
+                super::handlers::io::handle_syscall(&mut self.ctx, &self.heap, &mut self.memory, &mut self.output, self.print_immediately);
             }
         }
 
@@ -448,7 +476,7 @@ mod tests {
     #[test]
     fn test_memory_operations() {
         let instructions = vec![
-            Instruction::LoadImm { dest: Register::R0, value: 1000 },  // address
+            Instruction::LoadImm { dest: Register::R0, value: 0x8000 },  // heap address
             Instruction::LoadImm { dest: Register::R1, value: 42 },    // value
             Instruction::Store { src: Register::R1, addr_reg: Register::R0 },
             Instruction::LoadImm { dest: Register::R2, value: 0 },     // clear R2

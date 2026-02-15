@@ -24,16 +24,17 @@ pub enum Register {
     R14 = 14,
     R15 = 15,
 
-    // Special registers (16-19)
+    // Special registers (16-20)
     SP = 16, // Stack Pointer
     BP = 17, // Base Pointer
     IP = 18, // Instruction Pointer (read-only from user perspective)
     FL = 19, // Flags
+    HP = 20, // Heap Pointer
 }
 
 impl Register {
     /// Total number of registers
-    pub const COUNT: usize = 20;
+    pub const COUNT: usize = 21;
 
     /// Number of general-purpose registers
     pub const GP_COUNT: usize = 16;
@@ -61,6 +62,7 @@ impl Register {
             17 => Ok(Register::BP),
             18 => Ok(Register::IP),
             19 => Ok(Register::FL),
+            20 => Ok(Register::HP),
             _ => Err(RegisterError::InvalidCode(value)),
         }
     }
@@ -103,6 +105,7 @@ impl Register {
             Register::BP => "bp",
             Register::IP => "ip",
             Register::FL => "fl",
+            Register::HP => "hp",
         }
     }
 }
@@ -149,7 +152,7 @@ mod tests {
 
     #[test]
     fn test_invalid_register() {
-        assert!(Register::from_u8(20).is_err());
+        assert!(Register::from_u8(21).is_err());
         assert!(Register::from_u8(255).is_err());
     }
 

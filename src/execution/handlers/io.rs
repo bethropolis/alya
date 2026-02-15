@@ -1,11 +1,12 @@
-use crate::memory::{Memory, MemoryAccess};
+use crate::memory::{MemoryAccess};
+use crate::memory::heap::Heap;
 use crate::core::Register;
 use crate::execution::context::ExecutionContext;
 
 /// Execute Syscall
 /// R0 = Syscall ID
 /// R1... = Arguments
-pub fn handle_syscall(ctx: &mut ExecutionContext, memory: &Memory, output: &mut Vec<String>, print_immediately: bool) {
+pub fn handle_syscall(ctx: &mut ExecutionContext, heap: &Heap, memory: &mut dyn MemoryAccess, output: &mut Vec<String>, print_immediately: bool) {
     let id = ctx.get_reg(Register::R0);
     
     match id {
@@ -51,6 +52,28 @@ pub fn handle_syscall(ctx: &mut ExecutionContext, memory: &Memory, output: &mut 
                 eprintln!("{}", msg);
             }
             output.push(msg);
+        }
+        4 => {
+            // Malloc (Arg: R1 = Size, Ret: R0 = Ptr)
+            let size = ctx.get_reg(Register::R1) as usize;
+            match heap.alloc(memory, size) {
+                Ok(ptr) => ctx.set_reg(Register::R0, ptr as u64),
+                Err(e) => {
+                    let msg = format!("Syscall Malloc error: {}", e);
+                    if print_immediately { eprintln!("{}", msg); }
+                    output.push(msg);
+                    ctx.set_reg(Register::R0, 0);
+                }
+            }
+        }
+        5 => {
+            // Free (Arg: R1 = Ptr)
+            let ptr = ctx.get_reg(Register::R1) as usize;
+            if let Err(e) = heap.free(memory, ptr) {
+                let msg = format!("Syscall Free error: {}", e);
+                if print_immediately { eprintln!("{}", msg); }
+                output.push(msg);
+            }
         }
         _ => {
             let msg = format!("Unknown syscall ID: {}", id);

@@ -6,4 +6,5 @@ pub mod data_move;
 pub mod control;
 pub mod stack;
 pub mod memory;
+pub mod memory_ext;
 pub mod io;

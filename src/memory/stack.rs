@@ -109,8 +109,8 @@ mod tests {
 
     #[test]
     fn test_stack_push_pop() {
-        let mut mem = Memory::new(1024);
-        let mut stack = Stack::new(1024);
+        let mut mem = Memory::new(65536);
+        let mut stack = Stack::new(65536); // Base at 64KB
 
         stack.push(&mut mem, 42).unwrap();
         stack.push(&mut mem, 99).unwrap();
@@ -121,8 +121,8 @@ mod tests {
 
     #[test]
     fn test_stack_peek() {
-        let mut mem = Memory::new(1024);
-        let mut stack = Stack::new(1024);
+        let mut mem = Memory::new(65536);
+        let mut stack = Stack::new(65536);
 
         stack.push(&mut mem, 42).unwrap();
         assert_eq!(stack.peek(&mem).unwrap(), 42);
@@ -132,8 +132,8 @@ mod tests {
 
     #[test]
     fn test_stack_underflow() {
-        let mem = Memory::new(1024);
-        let mut stack = Stack::new(1024);
+        let mem = Memory::new(65536);
+        let mut stack = Stack::new(65536);
 
         assert!(stack.pop(&mem).is_err());
     }

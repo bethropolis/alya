@@ -1,4 +1,5 @@
 /target
-guide/
+guide/*
 /test_*
 *.bin
+-o

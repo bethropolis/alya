@@ -1,0 +1,33 @@
+; example/21_heap_alloc.alya
+; Test milestone 3 memory features: alloc, free, memcpy, memset
+
+; Allocate 64 bytes on heap
+@size := 64
+@ptr := alloc @size
+print @ptr
+
+; Memset the first 16 bytes with 0xFF
+@val := 0xFF
+@set_size := 16
+memset @ptr @val @set_size
+
+; Verify first byte
+@check := load @ptr
+print @check
+
+; Allocate another block
+@ptr2 := alloc @size
+print @ptr2
+
+; Copy first block to second block
+memcpy @ptr2 @ptr @set_size
+
+; Verify second block first byte
+@check2 := load @ptr2
+print @check2
+
+; Free blocks
+free @ptr
+free @ptr2
+
+halt

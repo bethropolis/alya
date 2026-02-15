@@ -115,6 +115,48 @@ fn parse_line(tokens: &[Token], _line_num: usize) -> Result<Option<Statement>, S
         return Err("Expected label after 'call'".to_string());
     }
 
+    // free @ptr
+    if matches!(&tokens[0], Token::Keyword(Keyword::Free)) {
+        if tokens.len() >= 2 {
+            if let Token::Register(ptr) = &tokens[1] {
+                return Ok(Some(Statement::Free { ptr_var: ptr.clone() }));
+            }
+        }
+        return Err("Expected register after 'free'".to_string());
+    }
+
+    // memcpy @dest @src @size
+    if matches!(&tokens[0], Token::Keyword(Keyword::MemCopy)) {
+        if tokens.len() >= 4 {
+            if let (Token::Register(dest), Token::Register(src), Token::Register(size)) =
+                (&tokens[1], &tokens[2], &tokens[3])
+            {
+                return Ok(Some(Statement::MemCopy {
+                    dest_var: dest.clone(),
+                    src_var: src.clone(),
+                    size_var: size.clone(),
+                }));
+            }
+        }
+        return Err("Expected 'memcpy @dest @src @size'".to_string());
+    }
+
+    // memset @dest @value @size
+    if matches!(&tokens[0], Token::Keyword(Keyword::MemSet)) {
+        if tokens.len() >= 4 {
+            if let (Token::Register(dest), Token::Register(value), Token::Register(size)) =
+                (&tokens[1], &tokens[2], &tokens[3])
+            {
+                return Ok(Some(Statement::MemSet {
+                    dest_var: dest.clone(),
+                    value_var: value.clone(),
+                    size_var: size.clone(),
+                }));
+            }
+        }
+        return Err("Expected 'memset @dest @value @size'".to_string());
+    }
+
     // store @value at @addr
     if matches!(&tokens[0], Token::Keyword(Keyword::Store)) {
         if tokens.len() >= 4 {
@@ -271,6 +313,19 @@ fn parse_register_statement(tokens: &[Token], name: &str) -> Result<Option<State
     // @reg := peek
     if matches!(&tokens[2], Token::Keyword(Keyword::Peek)) {
         return Ok(Some(Statement::Peek(name.to_string())));
+    }
+
+    // @reg := alloc @size
+    if matches!(&tokens[2], Token::Keyword(Keyword::Alloc)) {
+        if tokens.len() >= 4 {
+            if let Token::Register(size) = &tokens[3] {
+                return Ok(Some(Statement::Alloc {
+                    dest: name.to_string(),
+                    size_var: size.clone(),
+                }));
+            }
+        }
+        return Err("Expected register after 'alloc'".to_string());
     }
 
     // @reg := load @addr
