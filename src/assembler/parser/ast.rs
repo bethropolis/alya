@@ -5,6 +5,9 @@
 pub enum Statement {
     /// Load an immediate value: @dest := value
     LoadImm { dest: String, value: u64 },
+    
+    /// Load address of a string literal: @dest := "string"
+    LoadString { dest: String, value: String },
 
     /// Move register to register: @dest := @src
     MoveVar { dest: String, src: String },
@@ -53,6 +56,9 @@ pub enum Statement {
 
     /// Function call: call label
     Call(String),
+
+    /// System call (ID in R0, Args in R1...)
+    Syscall,
 
     /// Return
     Return,
@@ -109,6 +115,10 @@ pub enum Comparison {
     LessThan,
     GreaterEqual,
     LessEqual,
+    UnsignedGreaterThan,
+    UnsignedLessThan,
+    UnsignedGreaterEqual,
+    UnsignedLessEqual,
 }
 
 /// An operand that can be either a variable name or immediate value

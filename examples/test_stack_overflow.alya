@@ -1,0 +1,12 @@
+; Test Stack Overflow
+; This recursive function should crash the VM with "Stack overflow" error
+
+goto main
+
+recursive:
+    call recursive
+    return
+
+main:
+    call recursive
+    halt

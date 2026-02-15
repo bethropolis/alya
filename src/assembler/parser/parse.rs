@@ -60,6 +60,11 @@ fn parse_line(tokens: &[Token], _line_num: usize) -> Result<Option<Statement>, S
         return Ok(Some(Statement::Return));
     }
 
+    // syscall
+    if matches!(&tokens[0], Token::Keyword(Keyword::Syscall)) {
+        return Ok(Some(Statement::Syscall));
+    }
+
     // print @reg
     if matches!(&tokens[0], Token::Keyword(Keyword::Print)) {
         if tokens.len() >= 2 {
@@ -173,18 +178,45 @@ fn parse_if(tokens: &[Token]) -> Result<Option<Statement>, String> {
         _ => return Err("Expected register or number after comparison".to_string()),
     };
 
-    if !matches!(&tokens[4], Token::Keyword(Keyword::Goto)) {
+    let mut is_unsigned = false;
+    let mut goto_idx = 4;
+
+    // Check for "unsigned" keyword
+    if tokens.len() > 4 && matches!(&tokens[4], Token::Keyword(Keyword::Unsigned)) {
+        is_unsigned = true;
+        goto_idx = 5;
+    }
+
+    if tokens.len() < goto_idx + 2 {
+        return Err("Incomplete if statement".to_string());
+    }
+
+    if !matches!(&tokens[goto_idx], Token::Keyword(Keyword::Goto)) {
         return Err("Expected 'goto' in if statement".to_string());
     }
 
-    let label = match &tokens[5] {
+    let label = match &tokens[goto_idx + 1] {
         Token::Identifier(name) => name.clone(),
         _ => return Err("Expected label after 'goto'".to_string()),
     };
 
+    let final_comparison = if is_unsigned {
+        match comparison {
+            Comparison::GreaterThan => Comparison::UnsignedGreaterThan,
+            Comparison::LessThan => Comparison::UnsignedLessThan,
+            Comparison::GreaterEqual => Comparison::UnsignedGreaterEqual,
+            Comparison::LessEqual => Comparison::UnsignedLessEqual,
+            Comparison::Equal => Comparison::Equal, // Equal is same for signed/unsigned
+            Comparison::NotEqual => Comparison::NotEqual, // NotEqual is same for signed/unsigned
+            _ => return Err("Invalid comparison for unsigned".to_string()),
+        }
+    } else {
+        comparison
+    };
+
     Ok(Some(Statement::If {
         left,
-        comparison,
+        comparison: final_comparison,
         right,
         label,
     }))
@@ -274,11 +306,30 @@ fn parse_register_statement(tokens: &[Token], name: &str) -> Result<Option<State
     // @dest := @base[@index] (indexed load)
 
     match &tokens[2] {
+        Token::StringLiteral(s) => {
+            return Ok(Some(Statement::LoadString {
+                dest: name.to_string(),
+                value: s.clone(),
+            }));
+        }
         Token::Number(value) => {
             return Ok(Some(Statement::LoadImm {
                 dest: name.to_string(),
                 value: *value,
             }));
+        }
+        Token::Minus => {
+            // Handle negative immediate: @dest := -number
+            if tokens.len() >= 4 {
+                if let Token::Number(val) = &tokens[3] {
+                    // Convert -val to u64 (two's complement)
+                    let neg_val = (-(*val as i64)) as u64;
+                    return Ok(Some(Statement::LoadImm {
+                        dest: name.to_string(),
+                        value: neg_val,
+                    }));
+                }
+            }
         }
         Token::Register(src_name) => {
             // Check if it's a binary operation: @dest := @src op @right
@@ -317,10 +368,20 @@ fn parse_register_statement(tokens: &[Token], name: &str) -> Result<Option<State
                     }
                 };
 
-                let right = match &tokens[4] {
-                    Token::Register(r) => Operand::Variable(r.clone()),
-                    Token::Number(n) => Operand::Immediate(*n),
-                    _ => return Err("Expected register or number as right operand".to_string()),
+                // Handle right operand which could be negative number
+                let right = if tokens[4] == Token::Minus && tokens.len() >= 6 {
+                   if let Token::Number(n) = &tokens[5] {
+                        let neg_val = (-(*n as i64)) as u64;
+                        Operand::Immediate(neg_val)
+                   } else {
+                       return Err("Expected number after '-' in right operand".to_string());
+                   }
+                } else {
+                    match &tokens[4] {
+                        Token::Register(r) => Operand::Variable(r.clone()),
+                        Token::Number(n) => Operand::Immediate(*n),
+                        _ => return Err("Expected register or number as right operand".to_string()),
+                    }
                 };
 
                 return Ok(Some(Statement::BinOp {

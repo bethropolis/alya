@@ -59,6 +59,10 @@ pub enum Opcode {
     JumpIfLe = 0x76,
     JumpIfEq = 0x77,
     JumpIfNe = 0x78,
+    JumpIfAbove = 0x49,
+    JumpIfBelow = 0x4A,
+    JumpIfAe = 0x4B,
+    JumpIfBe = 0x4C,
 
     // Compare (used before conditional jumps)
     Compare = 0x79,
@@ -67,13 +71,10 @@ pub enum Opcode {
     Call = 0x80,
     Return = 0x81,
 
-    // I/O (0x90-0x9F)
-    Print = 0x90,
-    PrintChar = 0x91,
-    Input = 0x92,
+    // System (0x90-0x9F)
+    Syscall = 0x99,
 
     // Debug (0xF0-0xFF)
-    Debug = 0xF0,
     Breakpoint = 0xF1,
     TraceOn = 0xF2,
     TraceOff = 0xF3,
@@ -119,13 +120,15 @@ impl Opcode {
             0x76 => Ok(Opcode::JumpIfLe),
             0x77 => Ok(Opcode::JumpIfEq),
             0x78 => Ok(Opcode::JumpIfNe),
+            0x49 => Ok(Opcode::JumpIfAbove),
+            0x4A => Ok(Opcode::JumpIfBelow),
+            0x4B => Ok(Opcode::JumpIfAe),
+            0x4C => Ok(Opcode::JumpIfBe),
             0x79 => Ok(Opcode::Compare),
             0x80 => Ok(Opcode::Call),
             0x81 => Ok(Opcode::Return),
-            0x90 => Ok(Opcode::Print),
-            0x91 => Ok(Opcode::PrintChar),
-            0x92 => Ok(Opcode::Input),
-            0xF0 => Ok(Opcode::Debug),
+            0x99 => Ok(Opcode::Syscall),
+             // 0xF0 (Debug) removed
             0xF1 => Ok(Opcode::Breakpoint),
             0xF2 => Ok(Opcode::TraceOn),
             0xF3 => Ok(Opcode::TraceOff),
@@ -177,13 +180,14 @@ impl Opcode {
             Opcode::JumpIfLe => "jump_if_le",
             Opcode::JumpIfEq => "jump_if_eq",
             Opcode::JumpIfNe => "jump_if_ne",
+            Opcode::JumpIfAbove => "jump_if_above",
+            Opcode::JumpIfBelow => "jump_if_below",
+            Opcode::JumpIfAe => "jump_if_ae",
+            Opcode::JumpIfBe => "jump_if_be",
             Opcode::Compare => "compare",
             Opcode::Call => "call",
             Opcode::Return => "return",
-            Opcode::Print => "print",
-            Opcode::PrintChar => "print_char",
-            Opcode::Input => "input",
-            Opcode::Debug => "debug",
+            Opcode::Syscall => "syscall",
             Opcode::Breakpoint => "breakpoint",
             Opcode::TraceOn => "trace_on",
             Opcode::TraceOff => "trace_off",
@@ -222,7 +226,7 @@ mod tests {
     #[test]
     fn test_opcode_roundtrip() {
         let opcodes = vec![
-            Opcode::Halt, Opcode::Add, Opcode::Jump, Opcode::Print, Opcode::Compare,
+            Opcode::Halt, Opcode::Add, Opcode::Jump, Opcode::Syscall, Opcode::Compare,
         ];
 
         for opcode in opcodes {

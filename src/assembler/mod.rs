@@ -17,7 +17,7 @@ pub fn assemble(source: &str, name: &str) -> Result<Program, VmError> {
     let statements = parser::parse(source)?;
 
     // Generate instructions from AST
-    let instructions = codegen::generate(statements)?;
+    let (instructions, data) = codegen::generate(statements)?;
 
-    Ok(Program::from_instructions(name, instructions))
+    Ok(Program::with_data(name, instructions, data))
 }

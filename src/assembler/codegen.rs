@@ -13,7 +13,7 @@ use crate::error::VmError;
 use crate::assembler::parser::ast::*;
 
 /// Generate a list of instructions from parsed statements.
-pub fn generate(statements: Vec<Statement>) -> Result<Vec<Instruction>, VmError> {
+pub fn generate(statements: Vec<Statement>) -> Result<(Vec<Instruction>, Vec<u8>), VmError> {
     let mut gen = CodeGenerator::new();
     gen.generate(statements)
 }
@@ -27,6 +27,8 @@ struct CodeGenerator {
     label_map: HashMap<String, usize>,
     /// Collected instructions (with possible unresolved label refs)
     instructions: Vec<InstructionSlot>,
+    /// Accumulated data strings
+    data_section: Vec<u8>,
 }
 
 /// During codegen, some jumps have unknown targets. We use placeholders.
@@ -36,6 +38,8 @@ enum InstructionSlot {
     Jump { label: String },
     JumpIf { comparison: Comparison, label: String },
     Call { label: String },
+    /// Load address of a string in data section. Value is offset in data_section.
+    LoadStringAddress { dest: Register, offset: usize },
 }
 
 impl CodeGenerator {
@@ -45,6 +49,7 @@ impl CodeGenerator {
             next_reg: 0,
             label_map: HashMap::new(),
             instructions: Vec::new(),
+            data_section: Vec::new(),
         }
     }
 
@@ -107,14 +112,15 @@ impl CodeGenerator {
     }
 
     /// Main generation entry point.
-    fn generate(&mut self, statements: Vec<Statement>) -> Result<Vec<Instruction>, VmError> {
+    fn generate(&mut self, statements: Vec<Statement>) -> Result<(Vec<Instruction>, Vec<u8>), VmError> {
         // Emit instructions for each statement; labels record positions as they appear.
         for stmt in statements {
             self.emit_statement(stmt)?;
         }
 
         // Resolve all label references
-        self.resolve_labels()
+        let instrs = self.resolve_labels()?;
+        Ok((instrs, self.data_section.clone()))
     }
 
     fn emit_statement(&mut self, stmt: Statement) -> Result<(), VmError> {
@@ -208,17 +214,43 @@ impl CodeGenerator {
                     Instruction::Peek { dest: reg }
                 ));
             }
+            Statement::Syscall => {
+                self.instructions.push(InstructionSlot::Real(Instruction::Syscall));
+            }
             Statement::Print(name) => {
+                // Lower print @reg to:
+                // Push R0
+                // Push R1
+                // Move R1, @reg
+                // LoadImm R0, 1 (Syscall ID)
+                // Syscall
+                // Pop R1
+                // Pop R0
                 let reg = self.resolve_var(&name)?;
-                self.instructions.push(InstructionSlot::Real(
-                    Instruction::Print { src: reg }
-                ));
+                
+                self.instructions.push(InstructionSlot::Real(Instruction::Push { src: Register::R0 }));
+                self.instructions.push(InstructionSlot::Real(Instruction::Push { src: Register::R1 }));
+                
+                self.instructions.push(InstructionSlot::Real(Instruction::Move { dest: Register::R1, src: reg }));
+                self.instructions.push(InstructionSlot::Real(Instruction::LoadImm { dest: Register::R0, value: 1 }));
+                self.instructions.push(InstructionSlot::Real(Instruction::Syscall));
+                
+                self.instructions.push(InstructionSlot::Real(Instruction::Pop { dest: Register::R1 }));
+                self.instructions.push(InstructionSlot::Real(Instruction::Pop { dest: Register::R0 }));
             }
             Statement::Debug(name) => {
+                 // Lower debug @reg to Syscall ID 3
                 let reg = self.resolve_var(&name)?;
-                self.instructions.push(InstructionSlot::Real(
-                    Instruction::Debug { src: reg }
-                ));
+                
+                self.instructions.push(InstructionSlot::Real(Instruction::Push { src: Register::R0 }));
+                self.instructions.push(InstructionSlot::Real(Instruction::Push { src: Register::R1 }));
+                
+                self.instructions.push(InstructionSlot::Real(Instruction::Move { dest: Register::R1, src: reg }));
+                self.instructions.push(InstructionSlot::Real(Instruction::LoadImm { dest: Register::R0, value: 3 }));
+                self.instructions.push(InstructionSlot::Real(Instruction::Syscall));
+                
+                self.instructions.push(InstructionSlot::Real(Instruction::Pop { dest: Register::R1 }));
+                self.instructions.push(InstructionSlot::Real(Instruction::Pop { dest: Register::R0 }));
             }
             Statement::Goto(label) => {
                 self.instructions.push(InstructionSlot::Jump { label });
@@ -269,6 +301,16 @@ impl CodeGenerator {
                     Instruction::LoadIndexed { dest: dest_reg, base_reg, index_reg }
                 ));
             }
+            Statement::LoadString { dest, value } => {
+                let reg = self.resolve_var(&dest)?;
+                
+                // Store string + null terminator
+                let offset = self.data_section.len();
+                self.data_section.extend_from_slice(value.as_bytes());
+                self.data_section.push(0);
+
+                self.instructions.push(InstructionSlot::LoadStringAddress { dest: reg, offset });
+            }
         }
         Ok(())
     }
@@ -302,8 +344,20 @@ impl CodeGenerator {
                         Comparison::LessThan => Instruction::JumpIfLt { target: *target },
                         Comparison::GreaterEqual => Instruction::JumpIfGe { target: *target },
                         Comparison::LessEqual => Instruction::JumpIfLe { target: *target },
+                        Comparison::UnsignedGreaterThan => Instruction::JumpIfAbove { target: *target },
+                        Comparison::UnsignedLessThan => Instruction::JumpIfBelow { target: *target },
+                        Comparison::UnsignedGreaterEqual => Instruction::JumpIfAe { target: *target },
+                        Comparison::UnsignedLessEqual => Instruction::JumpIfBe { target: *target },
                     };
                     result.push(jump);
+                }
+                InstructionSlot::LoadStringAddress { dest, offset } => {
+                    // Load the address (offset in memory)
+                    // We assume data is loaded at memory address 0
+                    result.push(Instruction::LoadImm { 
+                         dest: *dest, 
+                         value: *offset as u64 
+                    });
                 }
             }
         }
@@ -345,17 +399,21 @@ mod tests {
     #[test]
     fn test_codegen_hello() {
         let stmts = parser::parse("@r0 := 42\nprint @r0\nhalt\n").unwrap();
-        let instructions = generate(stmts).unwrap();
-        assert_eq!(instructions.len(), 3);
+        let (instructions, _) = generate(stmts).unwrap();
+        // 0: LoadImm
+        // Print expands to: Push, Push, Move, LoadImm, Syscall, Pop, Pop (7 instrs)
+        // Total 1 + 7 + 1 (Halt) = 9
+        assert_eq!(instructions.len(), 9);
         assert!(matches!(&instructions[0], Instruction::LoadImm { value: 42, .. }));
-        assert!(matches!(&instructions[1], Instruction::Print { .. }));
-        assert!(matches!(&instructions[2], Instruction::Halt));
+        // Check for syscall
+        assert!(matches!(&instructions[5], Instruction::Syscall));
+        assert!(matches!(&instructions[8], Instruction::Halt));
     }
 
     #[test]
     fn test_codegen_jump() {
         let stmts = parser::parse("goto end\n@r0 := 99\nend:\nhalt\n").unwrap();
-        let instructions = generate(stmts).unwrap();
+        let (instructions, _) = generate(stmts).unwrap();
         // goto end -> Jump { target: 2 } (skipping the loadimm)
         // @r0 := 99 -> LoadImm
         // end: -> (no instruction, label points to index 2)

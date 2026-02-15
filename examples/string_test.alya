@@ -1,0 +1,12 @@
+; Test string literals and printing
+@r0 := 2 ; Syscall ID for PrintString
+
+@ptr := "Hello, Alya!"
+@r1 := @ptr
+syscall
+
+@ptr2 := "String support works!"
+@r1 := @ptr2
+syscall
+
+halt

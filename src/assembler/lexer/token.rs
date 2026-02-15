@@ -7,6 +7,8 @@ pub enum Token {
     Register(String),
     /// A numeric literal (decimal, hex, binary)
     Number(u64),
+    /// A string literal
+    StringLiteral(String),
     /// A label reference (identifier without @)
     Identifier(String),
     /// :=
@@ -83,7 +85,9 @@ pub enum Keyword {
     Store,
     At,
     Debug,
+    Syscall,
     Nop,
+    Unsigned, // New keyword for unsigned comparisons
 }
 
 /// Tokenize a single line of source code.
@@ -220,10 +224,29 @@ pub fn tokenize_line(line: &str) -> Vec<Token> {
                 "store" => Token::Keyword(Keyword::Store),
                 "at" => Token::Keyword(Keyword::At),
                 "debug" => Token::Keyword(Keyword::Debug),
+                "syscall" => Token::Keyword(Keyword::Syscall),
                 "nop" => Token::Keyword(Keyword::Nop),
+                "unsigned" => Token::Keyword(Keyword::Unsigned),
                 _ => Token::Identifier(word),
             };
             tokens.push(token);
+            continue;
+        }
+
+        // String literal: "..."
+        if chars[i] == '"' {
+            i += 1;
+            let start = i;
+            while i < len && chars[i] != '"' {
+                // TODO: Handle escape sequences if needed
+                i += 1;
+            }
+            // if i >= len - unterminated string
+            let content: String = chars[start..i].iter().collect();
+            tokens.push(Token::StringLiteral(content));
+            if i < len {
+                i += 1; // Skip closing quote
+            }
             continue;
         }
 
@@ -288,5 +311,18 @@ mod tests {
             Token::SwapOp,
             Token::Register("r3".to_string()),
         ]);
+    }
+
+    #[test]
+    fn test_tokenize_string() {
+        let tokens = tokenize_line("@ptr := \"Hello\"");
+        assert_eq!(tokens.len(), 3);
+        assert!(matches!(tokens[0], Token::Register(_)));
+        assert_eq!(tokens[1], Token::Assign);
+        if let Token::StringLiteral(ref s) = tokens[2] {
+            assert_eq!(s, "Hello");
+        } else {
+            panic!("Expected StringLiteral, got {:?}", tokens[2]);
+        }
     }
 }

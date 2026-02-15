@@ -56,6 +56,13 @@ impl VM {
     /// Run a program to completion
     pub fn run(&mut self, program: &Program) -> VmResult<()> {
         self.ctx.reset();
+        
+        // Load data section into memory (at address 0)
+        self.memory.clear();
+        if let Err(e) = self.memory.load_program(&program.data) {
+             return Err(VmError::Execution(format!("Failed to load program data: {}", e)));
+        }
+
         self.output.clear();
         let mut instruction_count: u64 = 0;
 
@@ -211,37 +218,47 @@ impl VM {
             Instruction::JumpIfNe { target } => {
                 control::handle_jump_if_ne(&mut self.ctx, *target);
             }
+            Instruction::JumpIfAbove { target } => {
+                control::handle_jump_if_above(&mut self.ctx, *target);
+            }
+            Instruction::JumpIfBelow { target } => {
+                control::handle_jump_if_below(&mut self.ctx, *target);
+            }
+            Instruction::JumpIfAe { target } => {
+                control::handle_jump_if_ae(&mut self.ctx, *target);
+            }
+            Instruction::JumpIfBe { target } => {
+                control::handle_jump_if_be(&mut self.ctx, *target);
+            }
 
             // Functions
             Instruction::Call { target } => {
-                control::handle_call(&mut self.ctx, *target);
+                control::handle_call(&mut self.ctx, *target)?;
             }
             Instruction::Return => {
                 control::handle_return(&mut self.ctx)?;
             }
 
-            // I/O
-            Instruction::Print { src } => {
-                let value = self.ctx.get_reg(*src);
-                if self.print_immediately {
-                    println!("{}", value);
-                }
-                self.output.push(format!("{}", value));
-            }
-            Instruction::PrintChar { src } => {
-                let value = self.ctx.get_reg(*src) as u8 as char;
-                if self.print_immediately {
-                    print!("{}", value);
-                }
-                self.output.push(format!("{}", value));
-            }
-            Instruction::Debug { src } => {
-                let value = self.ctx.get_reg(*src);
-                let msg = format!("DEBUG {} = {} (0x{:x})", src, value, value);
-                if self.print_immediately {
-                    eprintln!("{}", msg);
-                }
-                self.output.push(msg);
+            // System
+            Instruction::Syscall => {
+                // We need to pass output buffer.
+                // IO handler needs mutable access to output and print flags.
+                // We can't pass &mut self because self.ctx is already borrowed mutably?
+                // `execute_instruction` takes `&mut self`.
+                // But `self.ctx` is borrowed for `handle_syscall`?
+                // Wait, `handle_syscall(ctx, output, flag)` takes separate borrows.
+                // `execute_instruction` has `&mut self`.
+                // `self.ctx` is a field. `self.output` is a field.
+                // Rust borrow checker allows splitting borrows if we access fields directly?
+                // But `execute_instruction` signatures matches on `instruction`.
+                // `instruction` is borrowed from `program`? No, `program` is passed to `run`, but `instruction` is cloned or ref?
+                // In `run`: `let instruction = ... .clone();`
+                // So `instruction` is owned or local ref.
+                
+                // Problem: `handle_xxx(&mut self.ctx, ...)`
+                // If I call `io::handle_syscall(&mut self.ctx, &mut self.output, self.print_immediately)`, it should work
+                // because I'm borrowing disjoint fields of `self`.
+                super::handlers::io::handle_syscall(&mut self.ctx, &self.memory, &mut self.output, self.print_immediately);
             }
         }
 
@@ -269,13 +286,24 @@ mod tests {
         Program::from_instructions("test", instructions)
     }
 
+    // Helper to emit a print calculation
+    fn emit_print(src: Register) -> Vec<Instruction> {
+        vec![
+            Instruction::Move { dest: Register::R1, src },
+            Instruction::LoadImm { dest: Register::R0, value: 1 },
+            Instruction::Syscall,
+        ]
+    }
+
     #[test]
     fn test_hello_world() {
-        let program = make_program(vec![
+        let mut instrs = vec![
             Instruction::LoadImm { dest: Register::R0, value: 42 },
-            Instruction::Print { src: Register::R0 },
-            Instruction::Halt,
-        ]);
+        ];
+        instrs.extend(emit_print(Register::R0));
+        instrs.push(Instruction::Halt);
+
+        let program = make_program(instrs);
 
         let mut vm = VM::new();
         vm.print_immediately = false;
@@ -286,13 +314,15 @@ mod tests {
 
     #[test]
     fn test_arithmetic() {
-        let program = make_program(vec![
+        let mut instrs = vec![
             Instruction::LoadImm { dest: Register::R0, value: 10 },
             Instruction::LoadImm { dest: Register::R1, value: 20 },
             Instruction::Add { dest: Register::R2, left: Register::R0, right: Register::R1 },
-            Instruction::Print { src: Register::R2 },
-            Instruction::Halt,
-        ]);
+        ];
+        instrs.extend(emit_print(Register::R2));
+        instrs.push(Instruction::Halt);
+
+        let program = make_program(instrs);
 
         let mut vm = VM::new();
         vm.print_immediately = false;
@@ -303,13 +333,15 @@ mod tests {
 
     #[test]
     fn test_stack_operations() {
-        let program = make_program(vec![
+        let mut instrs = vec![
             Instruction::LoadImm { dest: Register::R0, value: 42 },
             Instruction::Push { src: Register::R0 },
             Instruction::Pop { dest: Register::R1 },
-            Instruction::Print { src: Register::R1 },
-            Instruction::Halt,
-        ]);
+        ];
+        instrs.extend(emit_print(Register::R1));
+        instrs.push(Instruction::Halt);
+
+        let program = make_program(instrs);
 
         let mut vm = VM::new();
         vm.print_immediately = false;
@@ -320,13 +352,15 @@ mod tests {
 
     #[test]
     fn test_jump() {
-        let program = make_program(vec![
+        let mut instrs = vec![
             Instruction::Jump { target: 2 },       // 0: skip to 2
             Instruction::LoadImm { dest: Register::R0, value: 999 }, // 1: skipped
             Instruction::LoadImm { dest: Register::R0, value: 42 },  // 2: loads 42
-            Instruction::Print { src: Register::R0 },
-            Instruction::Halt,
-        ]);
+        ];
+        instrs.extend(emit_print(Register::R0));
+        instrs.push(Instruction::Halt);
+
+        let program = make_program(instrs);
 
         let mut vm = VM::new();
         vm.print_immediately = false;
@@ -335,19 +369,36 @@ mod tests {
         assert_eq!(vm.output(), &["42"]);
     }
 
+    // Need to adjust targets for manual syscall expansion (3 instrs vs 1)
     #[test]
     fn test_conditional_jump() {
-        let program = make_program(vec![
+        // Old target 5 -> New target will be shifted
+        // 0: LoadImm 5
+        // 1: LoadImm 10
+        // 2: Compare
+        // 3: JumpIfLt -> Target ?
+        // 4: LoadImm 0
+        // 5: LoadImm 1
+        // 6: Print (3 instrs)
+        // 9: Halt
+        
+        // Target should be 5.
+        
+        let instructions = vec![
             Instruction::LoadImm { dest: Register::R0, value: 5 },
             Instruction::LoadImm { dest: Register::R1, value: 10 },
             Instruction::Compare { left: Register::R0, right: Register::R1 },
             Instruction::JumpIfLt { target: 5 },    // 3: r0 < r1, should jump
             Instruction::LoadImm { dest: Register::R2, value: 0 }, // 4: skipped
             Instruction::LoadImm { dest: Register::R2, value: 1 }, // 5: r0 < r1 is true
-            Instruction::Print { src: Register::R2 },
-            Instruction::Halt,
-        ]);
+            // Print R2
+            Instruction::Move { dest: Register::R1, src: Register::R2 }, // 6
+            Instruction::LoadImm { dest: Register::R0, value: 1 }, // 7
+            Instruction::Syscall, // 8
+            Instruction::Halt, // 9
+        ];
 
+        let program = make_program(instructions);
         let mut vm = VM::new();
         vm.print_immediately = false;
         vm.run(&program).unwrap();
@@ -357,20 +408,36 @@ mod tests {
 
     #[test]
     fn test_call_return() {
-        let program = make_program(vec![
-            // 0: Jump to main
+         // 0: Jump to main (Target ?)
+         // 1: function: add 10 to R0
+         // 2: Add
+         // 3: Return
+         // Main:
+         // 4?
+         
+         // 0: Jump { target: 4 }
+         // 1: LoadImm R1, 10
+         // 2: Add R0, R0, R1
+         // 3: Return
+         // 4: LoadImm R0, 5
+         // 5: Call { target: 1 }
+         // 6: Print R0 -> Move(6), Load(7), Syscall(8)
+         // 9: Halt
+         
+        let instructions = vec![
             Instruction::Jump { target: 4 },
-            // 1: function: add 10 to R0
             Instruction::LoadImm { dest: Register::R1, value: 10 },
             Instruction::Add { dest: Register::R0, left: Register::R0, right: Register::R1 },
             Instruction::Return,
-            // 4: main
             Instruction::LoadImm { dest: Register::R0, value: 5 },
             Instruction::Call { target: 1 },
-            Instruction::Print { src: Register::R0 },
+            Instruction::Move { dest: Register::R1, src: Register::R0 },
+            Instruction::LoadImm { dest: Register::R0, value: 1 },
+            Instruction::Syscall,
             Instruction::Halt,
-        ]);
+        ];
 
+        let program = make_program(instructions);
         let mut vm = VM::new();
         vm.print_immediately = false;
         vm.run(&program).unwrap();
@@ -380,16 +447,19 @@ mod tests {
 
     #[test]
     fn test_memory_operations() {
-        let program = make_program(vec![
+        let instructions = vec![
             Instruction::LoadImm { dest: Register::R0, value: 1000 },  // address
             Instruction::LoadImm { dest: Register::R1, value: 42 },    // value
             Instruction::Store { src: Register::R1, addr_reg: Register::R0 },
             Instruction::LoadImm { dest: Register::R2, value: 0 },     // clear R2
             Instruction::Load { dest: Register::R2, addr_reg: Register::R0 },
-            Instruction::Print { src: Register::R2 },
+            Instruction::Move { dest: Register::R1, src: Register::R2 },
+            Instruction::LoadImm { dest: Register::R0, value: 1 },
+            Instruction::Syscall,
             Instruction::Halt,
-        ]);
+        ];
 
+        let program = make_program(instructions);
         let mut vm = VM::new();
         vm.print_immediately = false;
         vm.run(&program).unwrap();

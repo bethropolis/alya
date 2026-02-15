@@ -1,19 +1,18 @@
-//! Unified error types for Alya VM.
-
 use std::fmt;
 use crate::core::{RegisterError, OpcodeError};
+use crate::memory::{MemoryError, StackError};
 
 /// Unified error type for the entire VM.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum VmError {
     /// Register-related errors
     Register(RegisterError),
     /// Opcode-related errors
     Opcode(OpcodeError),
     /// Memory access errors
-    Memory(String),
+    Memory(MemoryError),
     /// Stack errors
-    Stack(String),
+    Stack(StackError),
     /// Execution errors
     Execution(String),
     /// Assembler errors
@@ -31,8 +30,8 @@ impl fmt::Display for VmError {
         match self {
             VmError::Register(e) => write!(f, "Register error: {}", e),
             VmError::Opcode(e) => write!(f, "Opcode error: {}", e),
-            VmError::Memory(msg) => write!(f, "Memory error: {}", msg),
-            VmError::Stack(msg) => write!(f, "Stack error: {}", msg),
+            VmError::Memory(e) => write!(f, "Memory error: {}", e),
+            VmError::Stack(e) => write!(f, "Stack error: {}", e),
             VmError::Execution(msg) => write!(f, "Execution error: {}", msg),
             VmError::Assembler(msg) => write!(f, "Assembler error: {}", msg),
             VmError::Io(msg) => write!(f, "I/O error: {}", msg),
@@ -53,5 +52,17 @@ impl From<RegisterError> for VmError {
 impl From<OpcodeError> for VmError {
     fn from(e: OpcodeError) -> Self {
         VmError::Opcode(e)
+    }
+}
+
+impl From<MemoryError> for VmError {
+    fn from(e: MemoryError) -> Self {
+        VmError::Memory(e)
+    }
+}
+
+impl From<StackError> for VmError {
+    fn from(e: StackError) -> Self {
+        VmError::Stack(e)
     }
 }

@@ -7,6 +7,7 @@ use super::Instruction;
 pub struct Program {
     pub name: String,
     pub instructions: Vec<Instruction>,
+    pub data: Vec<u8>,
 }
 
 impl Program {
@@ -15,6 +16,16 @@ impl Program {
         Self {
             name: name.into(),
             instructions: Vec::new(),
+            data: Vec::new(),
+        }
+    }
+
+    /// Create a program with instructions and data
+    pub fn with_data(name: impl Into<String>, instructions: Vec<Instruction>, data: Vec<u8>) -> Self {
+        Self {
+            name: name.into(),
+            instructions,
+            data,
         }
     }
 
@@ -23,6 +34,7 @@ impl Program {
         Self {
             name: name.into(),
             instructions,
+            data: Vec::new(),
         }
     }
 

@@ -1,0 +1,7 @@
+; Test infinite recursion limit
+call recursive_fn
+halt
+
+recursive_fn:
+    call recursive_fn
+    return

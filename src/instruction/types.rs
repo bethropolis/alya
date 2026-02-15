@@ -72,6 +72,10 @@ pub enum Instruction {
     JumpIfLe { target: usize },
     JumpIfEq { target: usize },
     JumpIfNe { target: usize },
+    JumpIfAbove { target: usize },
+    JumpIfBelow { target: usize },
+    JumpIfAe { target: usize },
+    JumpIfBe { target: usize },
 
     // === Functions ===
     /// Call: push return address, jump to target
@@ -79,12 +83,7 @@ pub enum Instruction {
     /// Return: pop return address, jump back
     Return,
 
-    // === I/O ===
-    /// Print register value as integer
-    Print { src: Register },
-    /// Print register value as ASCII character
-    PrintChar { src: Register },
-
-    // === Debug ===
-    Debug { src: Register },
+    // === System ===
+    /// System Call
+    Syscall,
 }

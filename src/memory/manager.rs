@@ -76,9 +76,11 @@ impl MemoryAccess for Memory {
             });
         }
 
-        let mut bytes = [0u8; 8];
-        bytes.copy_from_slice(&self.bytes[addr..addr + 8]);
-        Ok(u64::from_le_bytes(bytes))
+        // Fast path: direct pointer access
+        unsafe {
+            let ptr = self.bytes.as_ptr().add(addr) as *const u64;
+            Ok(u64::from_le(std::ptr::read_unaligned(ptr)))
+        }
     }
 
     fn write_qword(&mut self, addr: usize, value: u64) -> Result<(), MemoryError> {
@@ -89,8 +91,11 @@ impl MemoryAccess for Memory {
             });
         }
 
-        let bytes = value.to_le_bytes();
-        self.bytes[addr..addr + 8].copy_from_slice(&bytes);
+        // Fast path: direct pointer access
+        unsafe {
+            let ptr = self.bytes.as_mut_ptr().add(addr) as *mut u64;
+            std::ptr::write_unaligned(ptr, value.to_le());
+        }
         Ok(())
     }
 

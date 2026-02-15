@@ -8,6 +8,7 @@ pub enum Flag {
     Zero = 0,     // Result was zero
     Negative = 1, // Result was negative
     Carry = 2,    // Arithmetic overflow/carry
+    Overflow = 3, // Signed arithmetic overflow
 }
 
 /// Flags register state
@@ -78,6 +79,16 @@ impl Flags {
         self.get(Flag::Carry)
     }
 
+    /// Set overflow flag
+    pub fn set_overflow(&mut self, value: bool) {
+        self.set(Flag::Overflow, value);
+    }
+
+    /// Get overflow flag
+    pub fn overflow(self) -> bool {
+        self.get(Flag::Overflow)
+    }
+
     /// Update flags based on a result value
     pub fn update_from_result(&mut self, result: u64, overflow: bool) {
         self.set_zero(result == 0);
@@ -101,10 +112,11 @@ impl fmt::Display for Flags {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "[Z:{} N:{} C:{}]",
+            "[Z:{} N:{} C:{} O:{}]",
             if self.zero() { '1' } else { '0' },
             if self.negative() { '1' } else { '0' },
             if self.carry() { '1' } else { '0' },
+            if self.overflow() { '1' } else { '0' },
         )
     }
 }

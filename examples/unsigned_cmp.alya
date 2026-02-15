@@ -1,0 +1,54 @@
+; Test signed vs unsigned comparisons
+; We use r0, r1, r2, r3 for testing
+; We use r10 for printing results to avoid aliasing
+
+; Case 1: Signed comparison (-1 < 1)
+@r0 := -1
+@r1 := 1
+if @r0 < @r1 goto signed_ok
+@r10 := 0
+print @r10 ; Fail
+halt
+
+signed_ok:
+@r10 := 1
+print @r10 ; Pass (1)
+
+; Case 2: Unsigned comparison (-1 > 1)
+; -1 is MAX_U64
+if @r0 > @r1 unsigned goto unsigned_ok
+@r10 := 0
+print @r10 ; Fail
+halt
+
+unsigned_ok:
+@r10 := 2
+print @r10 ; Pass (2)
+
+; Case 3: Standard unsigned checks (5 < 10)
+@r2 := 5
+@r3 := 10
+
+if @r2 < @r3 unsigned goto check_3_ok
+@r10 := 0
+print @r10 ; Fail
+halt
+
+check_3_ok:
+@r10 := 3
+print @r10 ; Pass (3)
+
+; Case 4: Unsigned inequality (5 > 10 should be false)
+if @r2 > @r3 unsigned goto fail_4
+goto check_4_ok
+
+fail_4:
+@r10 := 0
+print @r10 ; Fail
+halt
+
+check_4_ok:
+@r10 := 4
+print @r10 ; Pass (4)
+
+halt
