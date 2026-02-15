@@ -4,6 +4,7 @@
 //! It dispatches instructions to handler functions.
 
 pub mod vm;
+pub mod debugger;
 mod context;
 mod handlers;
 

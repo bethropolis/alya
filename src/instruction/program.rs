@@ -8,6 +8,7 @@ pub struct Program {
     pub name: String,
     pub instructions: Vec<Instruction>,
     pub data: Vec<u8>,
+    pub line_table: Vec<usize>,
 }
 
 impl Program {
@@ -17,6 +18,7 @@ impl Program {
             name: name.into(),
             instructions: Vec::new(),
             data: Vec::new(),
+            line_table: Vec::new(),
         }
     }
 
@@ -26,6 +28,7 @@ impl Program {
             name: name.into(),
             instructions,
             data,
+            line_table: Vec::new(),
         }
     }
 
@@ -35,6 +38,7 @@ impl Program {
             name: name.into(),
             instructions,
             data: Vec::new(),
+            line_table: Vec::new(),
         }
     }
 

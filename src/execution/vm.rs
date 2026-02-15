@@ -26,6 +26,8 @@ pub struct VM {
     pub heap: Heap,
     pub output: Vec<String>,
     pub print_immediately: bool,
+    pub instruction_count: u64,
+    pub instr_freq: std::collections::HashMap<u8, u64>,
 }
 
 impl VM {
@@ -41,6 +43,8 @@ impl VM {
             heap,
             output: Vec::new(),
             print_immediately: true,
+            instruction_count: 0,
+            instr_freq: std::collections::HashMap::new(),
         }
     }
 
@@ -56,11 +60,32 @@ impl VM {
             heap,
             output: Vec::new(),
             print_immediately: true,
+            instruction_count: 0,
+            instr_freq: std::collections::HashMap::new(),
         }
     }
 
     /// Run a program to completion
     pub fn run(&mut self, program: &Program) -> VmResult<()> {
+        self.init(program)?;
+
+        let mut instruction_count: u64 = 0;
+        while !self.ctx.halted && self.ctx.pc < program.len() {
+            instruction_count += 1;
+            if instruction_count > MAX_INSTRUCTIONS {
+                return Err(VmError::Execution(format!(
+                    "Exceeded maximum instruction count ({}). Possible infinite loop.",
+                    MAX_INSTRUCTIONS
+                )));
+            }
+
+            self.step(program)?;
+        }
+        Ok(())
+    }
+
+    /// Initialize VM for a program
+    pub fn init(&mut self, program: &Program) -> VmResult<()> {
         self.ctx.reset();
         
         // Load data section into memory (at address 0)
@@ -78,35 +103,37 @@ impl VM {
         self.ctx.set_reg(crate::core::Register::HP, 0x8000);
 
         self.output.clear();
-        let mut instruction_count: u64 = 0;
-
-        while !self.ctx.halted && self.ctx.pc < program.len() {
-            instruction_count += 1;
-            if instruction_count > MAX_INSTRUCTIONS {
-                return Err(VmError::Execution(format!(
-                    "Exceeded maximum instruction count ({}). Possible infinite loop.",
-                    MAX_INSTRUCTIONS
-                )));
-            }
-
-            let instruction = program.get(self.ctx.pc)
-                .ok_or_else(|| VmError::Execution(format!(
-                    "Invalid program counter: {}",
-                    self.ctx.pc
-                )))?
-                .clone();
-
-            // Advance PC before execution (jumps may override)
-            self.ctx.pc += 1;
-
-            self.execute_instruction(&instruction)?;
-        }
-
+        self.instruction_count = 0;
+        self.instr_freq.clear();
         Ok(())
     }
 
     /// Execute a single instruction
-    fn execute_instruction(&mut self, instruction: &Instruction) -> VmResult<()> {
+    pub fn step(&mut self, program: &Program) -> VmResult<()> {
+        if self.ctx.halted || self.ctx.pc >= program.len() {
+            return Ok(());
+        }
+
+        let instruction = program.get(self.ctx.pc)
+            .ok_or_else(|| VmError::Execution(format!(
+                "Invalid program counter: {}",
+                self.ctx.pc
+            )))?
+            .clone();
+
+        // Advance PC before execution (jumps may override)
+        self.ctx.pc += 1;
+        
+        // Profiling
+        self.instruction_count += 1;
+        let opcode = instruction.opcode().to_u8();
+        *self.instr_freq.entry(opcode).or_insert(0) += 1;
+
+        self.execute_instruction(&instruction)
+    }
+
+    /// Execute a single instruction
+    pub(crate) fn execute_instruction(&mut self, instruction: &Instruction) -> VmResult<()> {
         match instruction {
             // Control
             Instruction::Halt => {

@@ -1,5 +1,12 @@
 //! AST node types for the Alya assembler.
 
+/// A statement with source location metadata.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpannedStatement {
+    pub node: Statement,
+    pub line: usize,
+}
+
 /// A single statement in an Alya program.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {

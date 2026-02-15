@@ -11,3 +11,4 @@ pub use types::Instruction;
 pub use program::Program;
 
 pub mod binary;
+pub mod disassembler;

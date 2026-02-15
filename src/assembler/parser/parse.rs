@@ -5,7 +5,7 @@ use crate::error::VmError;
 use super::ast::*;
 
 /// Parse source code into a list of statements.
-pub fn parse(source: &str) -> Result<Vec<Statement>, VmError> {
+pub fn parse(source: &str) -> Result<Vec<SpannedStatement>, VmError> {
     let mut statements = Vec::new();
 
     for (line_num, line) in source.lines().enumerate() {
@@ -19,11 +19,15 @@ pub fn parse(source: &str) -> Result<Vec<Statement>, VmError> {
             continue;
         }
 
-        let stmt = parse_line(&tokens, line_num + 1)
-            .map_err(|e| VmError::Assembler(format!("Line {}: {}", line_num + 1, e)))?;
+        let actual_line = line_num + 1;
+        let stmt_node = parse_line(&tokens, actual_line)
+            .map_err(|e| VmError::Assembler(format!("Line {}: {}", actual_line, e)))?;
 
-        if let Some(s) = stmt {
-            statements.push(s);
+        if let Some(node) = stmt_node {
+            statements.push(SpannedStatement {
+                node,
+                line: actual_line,
+            });
         }
     }
 
@@ -638,16 +642,19 @@ mod tests {
     fn test_parse_hello() {
         let stmts = parse("@r0 := 42\nprint @r0\nhalt\n").unwrap();
         assert_eq!(stmts.len(), 3);
-        assert!(matches!(&stmts[0], Statement::LoadImm { dest, value: 42 } if dest == "r0"));
-        assert!(matches!(&stmts[1], Statement::Print(name) if name == "r0"));
-        assert!(matches!(&stmts[2], Statement::Halt));
+        assert!(matches!(&stmts[0].node, Statement::LoadImm { ref dest, value: 42 } if dest == "r0"));
+        assert!(matches!(&stmts[1].node, Statement::Print(ref name) if name == "r0"));
+        assert!(matches!(&stmts[2].node, Statement::Halt));
+        assert_eq!(stmts[0].line, 1);
+        assert_eq!(stmts[1].line, 2);
+        assert_eq!(stmts[2].line, 3);
     }
 
     #[test]
     fn test_parse_arithmetic() {
         let stmts = parse("@r2 := @r0 + @r1\n").unwrap();
         assert_eq!(stmts.len(), 1);
-        if let Statement::BinOp { dest, left, op, right } = &stmts[0] {
+        if let Statement::BinOp { dest, left, op, right } = &stmts[0].node {
             assert_eq!(dest, "r2");
             assert_eq!(left, "r0");
             assert_eq!(*op, BinOp::Add);
@@ -661,14 +668,14 @@ mod tests {
     fn test_parse_label() {
         let stmts = parse("loop_start:\n").unwrap();
         assert_eq!(stmts.len(), 1);
-        assert!(matches!(&stmts[0], Statement::Label(name) if name == "loop_start"));
+        assert!(matches!(&stmts[0].node, Statement::Label(ref name) if name == "loop_start"));
     }
 
     #[test]
     fn test_parse_if() {
         let stmts = parse("if @counter < @limit goto loop_start\n").unwrap();
         assert_eq!(stmts.len(), 1);
-        if let Statement::If { left, comparison, right, label } = &stmts[0] {
+        if let Statement::If { left, comparison, right, label } = &stmts[0].node {
             assert_eq!(left, "counter");
             assert_eq!(*comparison, Comparison::LessThan);
             assert_eq!(*right, Operand::Variable("limit".to_string()));

@@ -12,8 +12,8 @@ use crate::instruction::Instruction;
 use crate::error::VmError;
 use crate::assembler::parser::ast::*;
 
-/// Generate a list of instructions from parsed statements.
-pub fn generate(statements: Vec<Statement>) -> Result<(Vec<Instruction>, Vec<u8>), VmError> {
+/// Generate a list of instructions and debug info from parsed statements.
+pub fn generate(statements: Vec<SpannedStatement>) -> Result<(Vec<Instruction>, Vec<u8>, Vec<usize>), VmError> {
     let mut gen = CodeGenerator::new();
     gen.generate(statements)
 }
@@ -29,6 +29,8 @@ struct CodeGenerator {
     instructions: Vec<InstructionSlot>,
     /// Accumulated data strings
     data_section: Vec<u8>,
+    /// Line numbers corresponding to instructions
+    line_table: Vec<usize>,
 }
 
 /// During codegen, some jumps have unknown targets. We use placeholders.
@@ -50,6 +52,7 @@ impl CodeGenerator {
             label_map: HashMap::new(),
             instructions: Vec::new(),
             data_section: Vec::new(),
+            line_table: Vec::new(),
         }
     }
 
@@ -96,23 +99,33 @@ impl CodeGenerator {
     }
 
     /// Resolve an Operand to a register, inserting a LoadImm if it's an immediate.
-    fn resolve_operand(&mut self, operand: &Operand) -> Result<Register, VmError> {
+    fn resolve_operand(&mut self, operand: &Operand, line: usize) -> Result<Register, VmError> {
         match operand {
             Operand::Variable(name) => self.resolve_var(name),
             Operand::Immediate(value) => {
                 // Reuse the same temporary register name everywhere to avoid exhaustion
                 let temp_name = "__tmp";
                 let reg = self.resolve_var(temp_name)?;
-                self.instructions.push(InstructionSlot::Real(
-                    Instruction::LoadImm { dest: reg, value: *value }
-                ));
+                self.push_instr(
+                    Instruction::LoadImm { dest: reg, value: *value },
+                    line
+                );
                 Ok(reg)
             }
         }
     }
+    
+    fn push_slot(&mut self, slot: InstructionSlot, line: usize) {
+        self.instructions.push(slot);
+        self.line_table.push(line);
+    }
+
+    fn push_instr(&mut self, instr: Instruction, line: usize) {
+        self.push_slot(InstructionSlot::Real(instr), line);
+    }
 
     /// Main generation entry point.
-    fn generate(&mut self, statements: Vec<Statement>) -> Result<(Vec<Instruction>, Vec<u8>), VmError> {
+    fn generate(&mut self, statements: Vec<SpannedStatement>) -> Result<(Vec<Instruction>, Vec<u8>, Vec<usize>), VmError> {
         // Emit instructions for each statement; labels record positions as they appear.
         for stmt in statements {
             self.emit_statement(stmt)?;
@@ -120,47 +133,51 @@ impl CodeGenerator {
 
         // Resolve all label references
         let instrs = self.resolve_labels()?;
-        Ok((instrs, self.data_section.clone()))
+        Ok((instrs, self.data_section.clone(), self.line_table.clone()))
     }
 
-    fn emit_statement(&mut self, stmt: Statement) -> Result<(), VmError> {
-        match stmt {
+    fn emit_statement(&mut self, spanned: SpannedStatement) -> Result<(), VmError> {
+        let line = spanned.line;
+        match spanned.node {
             Statement::Label(name) => {
                 // Record the current instruction index for this label
                 self.label_map.insert(name, self.instructions.len());
             }
             Statement::Halt => {
-                self.instructions.push(InstructionSlot::Real(Instruction::Halt));
+                self.push_instr(Instruction::Halt, line);
             }
             Statement::Nop => {
-                self.instructions.push(InstructionSlot::Real(Instruction::Nop));
+                self.push_instr(Instruction::Nop, line);
             }
             Statement::Return => {
-                self.instructions.push(InstructionSlot::Real(Instruction::Return));
+                self.push_instr(Instruction::Return, line);
             }
             Statement::LoadImm { dest, value } => {
                 let reg = self.resolve_var(&dest)?;
-                self.instructions.push(InstructionSlot::Real(
-                    Instruction::LoadImm { dest: reg, value }
-                ));
+                self.push_instr(
+                    Instruction::LoadImm { dest: reg, value },
+                    line
+                );
             }
             Statement::MoveVar { dest, src } => {
                 let dest_reg = self.resolve_var(&dest)?;
                 let src_reg = self.resolve_var(&src)?;
-                self.instructions.push(InstructionSlot::Real(
-                    Instruction::Move { dest: dest_reg, src: src_reg }
-                ));
+                self.push_instr(
+                    Instruction::Move { dest: dest_reg, src: src_reg },
+                    line
+                );
             }
             Statement::Swap { left, right } => {
                 let r1 = self.resolve_var(&left)?;
                 let r2 = self.resolve_var(&right)?;
-                self.instructions.push(InstructionSlot::Real(
-                    Instruction::Swap { r1, r2 }
-                ));
+                self.push_instr(
+                    Instruction::Swap { r1, r2 },
+                    line
+                );
             }
             Statement::BinOp { dest, left, op, right } => {
                 let left_reg = self.resolve_var(&left)?;
-                let right_reg = self.resolve_operand(&right)?;
+                let right_reg = self.resolve_operand(&right, line)?;
                 let dest_reg = self.resolve_var(&dest)?;
 
                 let instr = match op {
@@ -175,18 +192,19 @@ impl CodeGenerator {
                     BinOp::Shl => Instruction::Shl { dest: dest_reg, left: left_reg, right: right_reg },
                     BinOp::Shr => Instruction::Shr { dest: dest_reg, left: left_reg, right: right_reg },
                 };
-                self.instructions.push(InstructionSlot::Real(instr));
+                self.push_instr(instr, line);
             }
             Statement::UnaryOp { dest, op: UnaryOp::Not, operand } => {
                 let dest_reg = self.resolve_var(&dest)?;
                 let src_reg = self.resolve_var(&operand)?;
-                self.instructions.push(InstructionSlot::Real(
-                    Instruction::Not { dest: dest_reg, src: src_reg }
-                ));
+                self.push_instr(
+                    Instruction::Not { dest: dest_reg, src: src_reg },
+                    line
+                );
             }
             Statement::CompoundAssign { dest, op, operand } => {
                 let dest_reg = self.resolve_var(&dest)?;
-                let src_reg = self.resolve_operand(&operand)?;
+                let src_reg = self.resolve_operand(&operand, line)?;
 
                 let instr = match op {
                     CompoundOp::Add => Instruction::AddAssign { dest: dest_reg, src: src_reg },
@@ -194,151 +212,154 @@ impl CodeGenerator {
                     CompoundOp::Mul => Instruction::MulAssign { dest: dest_reg, src: src_reg },
                     CompoundOp::Div => Instruction::DivAssign { dest: dest_reg, src: src_reg },
                 };
-                self.instructions.push(InstructionSlot::Real(instr));
+                self.push_instr(instr, line);
             }
             Statement::Push(name) => {
                 let reg = self.resolve_var(&name)?;
-                self.instructions.push(InstructionSlot::Real(
-                    Instruction::Push { src: reg }
-                ));
+                self.push_instr(
+                    Instruction::Push { src: reg },
+                    line
+                );
             }
             Statement::Pop(name) => {
                 let reg = self.resolve_var(&name)?;
-                self.instructions.push(InstructionSlot::Real(
-                    Instruction::Pop { dest: reg }
-                ));
+                self.push_instr(
+                    Instruction::Pop { dest: reg },
+                    line
+                );
             }
             Statement::Peek(name) => {
                 let reg = self.resolve_var(&name)?;
-                self.instructions.push(InstructionSlot::Real(
-                    Instruction::Peek { dest: reg }
-                ));
+                self.push_instr(
+                    Instruction::Peek { dest: reg },
+                    line
+                );
             }
             Statement::Syscall => {
-                self.instructions.push(InstructionSlot::Real(Instruction::Syscall));
+                self.push_instr(Instruction::Syscall, line);
             }
             Statement::Print(name) => {
-                // Lower print @reg to:
-                // Push R0
-                // Push R1
-                // Move R1, @reg
-                // LoadImm R0, 1 (Syscall ID)
-                // Syscall
-                // Pop R1
-                // Pop R0
                 let reg = self.resolve_var(&name)?;
                 
-                self.instructions.push(InstructionSlot::Real(Instruction::Push { src: Register::R0 }));
-                self.instructions.push(InstructionSlot::Real(Instruction::Push { src: Register::R1 }));
+                self.push_instr(Instruction::Push { src: Register::R0 }, line);
+                self.push_instr(Instruction::Push { src: Register::R1 }, line);
                 
-                self.instructions.push(InstructionSlot::Real(Instruction::Move { dest: Register::R1, src: reg }));
-                self.instructions.push(InstructionSlot::Real(Instruction::LoadImm { dest: Register::R0, value: 1 }));
-                self.instructions.push(InstructionSlot::Real(Instruction::Syscall));
+                self.push_instr(Instruction::Move { dest: Register::R1, src: reg }, line);
+                self.push_instr(Instruction::LoadImm { dest: Register::R0, value: 1 }, line);
+                self.push_instr(Instruction::Syscall, line);
                 
-                self.instructions.push(InstructionSlot::Real(Instruction::Pop { dest: Register::R1 }));
-                self.instructions.push(InstructionSlot::Real(Instruction::Pop { dest: Register::R0 }));
+                self.push_instr(Instruction::Pop { dest: Register::R1 }, line);
+                self.push_instr(Instruction::Pop { dest: Register::R0 }, line);
             }
             Statement::Debug(name) => {
                  // Lower debug @reg to Syscall ID 3
                 let reg = self.resolve_var(&name)?;
                 
-                self.instructions.push(InstructionSlot::Real(Instruction::Push { src: Register::R0 }));
-                self.instructions.push(InstructionSlot::Real(Instruction::Push { src: Register::R1 }));
+                self.push_instr(Instruction::Push { src: Register::R0 }, line);
+                self.push_instr(Instruction::Push { src: Register::R1 }, line);
                 
-                self.instructions.push(InstructionSlot::Real(Instruction::Move { dest: Register::R1, src: reg }));
-                self.instructions.push(InstructionSlot::Real(Instruction::LoadImm { dest: Register::R0, value: 3 }));
-                self.instructions.push(InstructionSlot::Real(Instruction::Syscall));
+                self.push_instr(Instruction::Move { dest: Register::R1, src: reg }, line);
+                self.push_instr(Instruction::LoadImm { dest: Register::R0, value: 3 }, line);
+                self.push_instr(Instruction::Syscall, line);
                 
-                self.instructions.push(InstructionSlot::Real(Instruction::Pop { dest: Register::R1 }));
-                self.instructions.push(InstructionSlot::Real(Instruction::Pop { dest: Register::R0 }));
+                self.push_instr(Instruction::Pop { dest: Register::R1 }, line);
+                self.push_instr(Instruction::Pop { dest: Register::R0 }, line);
             }
             Statement::Goto(label) => {
-                self.instructions.push(InstructionSlot::Jump { label });
+                self.push_slot(InstructionSlot::Jump { label }, line);
             }
             Statement::Call(label) => {
-                self.instructions.push(InstructionSlot::Call { label });
+                self.push_slot(InstructionSlot::Call { label }, line);
             }
             Statement::If { left, comparison, right, label } => {
                 let left_reg = self.resolve_var(&left)?;
-                let right_reg = self.resolve_operand(&right)?;
+                let right_reg = self.resolve_operand(&right, line)?;
                 // Emit Compare instruction
-                self.instructions.push(InstructionSlot::Real(
-                    Instruction::Compare { left: left_reg, right: right_reg }
-                ));
+                self.push_instr(
+                    Instruction::Compare { left: left_reg, right: right_reg },
+                    line
+                );
                 // Emit conditional jump placeholder
-                self.instructions.push(InstructionSlot::JumpIf {
+                self.push_slot(InstructionSlot::JumpIf {
                     comparison,
                     label,
-                });
+                }, line);
             }
             Statement::Store { value_var, addr_var } => {
                 let src_reg = self.resolve_var(&value_var)?;
                 let addr_reg = self.resolve_var(&addr_var)?;
-                self.instructions.push(InstructionSlot::Real(
-                    Instruction::Store { src: src_reg, addr_reg }
-                ));
+                self.push_instr(
+                    Instruction::Store { src: src_reg, addr_reg },
+                    line
+                );
             }
             Statement::Load { dest_var, addr_var } => {
                 let dest_reg = self.resolve_var(&dest_var)?;
                 let addr_reg = self.resolve_var(&addr_var)?;
-                self.instructions.push(InstructionSlot::Real(
-                    Instruction::Load { dest: dest_reg, addr_reg }
-                ));
+                self.push_instr(
+                    Instruction::Load { dest: dest_reg, addr_reg },
+                    line
+                );
             }
             Statement::StoreIndexed { base_var, index_var, value } => {
                 let base_reg = self.resolve_var(&base_var)?;
                 let index_reg = self.resolve_var(&index_var)?;
-                let value_reg = self.resolve_operand(&value)?;
-                self.instructions.push(InstructionSlot::Real(
-                    Instruction::StoreIndexed { src: value_reg, base_reg, index_reg }
-                ));
+                let value_reg = self.resolve_operand(&value, line)?;
+                self.push_instr(
+                    Instruction::StoreIndexed { src: value_reg, base_reg, index_reg },
+                    line
+                );
             }
             Statement::LoadIndexed { dest, base_var, index_var } => {
                 let dest_reg = self.resolve_var(&dest)?;
                 let base_reg = self.resolve_var(&base_var)?;
                 let index_reg = self.resolve_var(&index_var)?;
-                self.instructions.push(InstructionSlot::Real(
-                    Instruction::LoadIndexed { dest: dest_reg, base_reg, index_reg }
-                ));
+                self.push_instr(
+                    Instruction::LoadIndexed { dest: dest_reg, base_reg, index_reg },
+                    line
+                );
             }
             Statement::LoadString { dest, value } => {
                 let reg = self.resolve_var(&dest)?;
                 
-                // Store string + null terminator
                 let offset = self.data_section.len();
                 self.data_section.extend_from_slice(value.as_bytes());
                 self.data_section.push(0);
 
-                self.instructions.push(InstructionSlot::LoadStringAddress { dest: reg, offset });
+                self.push_slot(InstructionSlot::LoadStringAddress { dest: reg, offset }, line);
             }
             Statement::Alloc { dest, size_var } => {
                 let dest_reg = self.resolve_var(&dest)?;
                 let size_reg = self.resolve_var(&size_var)?;
-                self.instructions.push(InstructionSlot::Real(
-                    Instruction::Alloc { dest: dest_reg, size: size_reg }
-                ));
+                self.push_instr(
+                    Instruction::Alloc { dest: dest_reg, size: size_reg },
+                    line
+                );
             }
             Statement::Free { ptr_var } => {
                 let ptr_reg = self.resolve_var(&ptr_var)?;
-                self.instructions.push(InstructionSlot::Real(
-                    Instruction::Free { ptr: ptr_reg }
-                ));
+                self.push_instr(
+                    Instruction::Free { ptr: ptr_reg },
+                    line
+                );
             }
             Statement::MemCopy { dest_var, src_var, size_var } => {
                 let dest_reg = self.resolve_var(&dest_var)?;
                 let src_reg = self.resolve_var(&src_var)?;
                 let size_reg = self.resolve_var(&size_var)?;
-                self.instructions.push(InstructionSlot::Real(
-                    Instruction::MemCopy { dest: dest_reg, src: src_reg, size: size_reg }
-                ));
+                self.push_instr(
+                    Instruction::MemCopy { dest: dest_reg, src: src_reg, size: size_reg },
+                    line
+                );
             }
             Statement::MemSet { dest_var, value_var, size_var } => {
                 let dest_reg = self.resolve_var(&dest_var)?;
                 let value_reg = self.resolve_var(&value_var)?;
                 let size_reg = self.resolve_var(&size_var)?;
-                self.instructions.push(InstructionSlot::Real(
-                    Instruction::MemSet { dest: dest_reg, value: value_reg, size: size_reg }
-                ));
+                self.push_instr(
+                    Instruction::MemSet { dest: dest_reg, value: value_reg, size: size_reg },
+                    line
+                );
             }
             Statement::FBinOp { dest, left, op, right } => {
                 let dest_reg = self.resolve_var(&dest)?;
@@ -350,7 +371,7 @@ impl CodeGenerator {
                     FBinOp::Mul => Instruction::FMul { dest: dest_reg, left: left_reg, right: right_reg },
                     FBinOp::Div => Instruction::FDiv { dest: dest_reg, left: left_reg, right: right_reg },
                 };
-                self.instructions.push(InstructionSlot::Real(instr));
+                self.push_instr(instr, line);
             }
             Statement::FUnaryOp { dest, op, src } => {
                 let dest_reg = self.resolve_var(&dest)?;
@@ -362,14 +383,15 @@ impl CodeGenerator {
                     FUnaryOp::ToInt => Instruction::F2I { dest: dest_reg, src: src_reg },
                     FUnaryOp::ToFloat => Instruction::I2F { dest: dest_reg, src: src_reg },
                 };
-                self.instructions.push(InstructionSlot::Real(instr));
+                self.push_instr(instr, line);
             }
             Statement::FCmp { left, right } => {
                 let left_reg = self.resolve_var(&left)?;
                 let right_reg = self.resolve_var(&right)?;
-                self.instructions.push(InstructionSlot::Real(
-                    Instruction::FCmp { left: left_reg, right: right_reg }
-                ));
+                self.push_instr(
+                    Instruction::FCmp { left: left_reg, right: right_reg },
+                    line
+                );
             }
             Statement::BitUnaryOp { dest, op, src } => {
                 let dest_reg = self.resolve_var(&dest)?;
@@ -380,7 +402,7 @@ impl CodeGenerator {
                     BitUnaryOp::Ctz => Instruction::Ctz { dest: dest_reg, src: src_reg },
                     BitUnaryOp::BSwap => Instruction::BSwap { dest: dest_reg, src: src_reg },
                 };
-                self.instructions.push(InstructionSlot::Real(instr));
+                self.push_instr(instr, line);
             }
             Statement::BitRotOp { dest, left, op, right } => {
                 let dest_reg = self.resolve_var(&dest)?;
@@ -390,7 +412,7 @@ impl CodeGenerator {
                     BitRotOp::RotL => Instruction::RotL { dest: dest_reg, left: left_reg, right: right_reg },
                     BitRotOp::RotR => Instruction::RotR { dest: dest_reg, left: left_reg, right: right_reg },
                 };
-                self.instructions.push(InstructionSlot::Real(instr));
+                self.push_instr(instr, line);
             }
         }
         Ok(())
@@ -499,7 +521,7 @@ mod tests {
     #[test]
     fn test_codegen_hello() {
         let stmts = parser::parse("@r0 := 42\nprint @r0\nhalt\n").unwrap();
-        let (instructions, _) = generate(stmts).unwrap();
+        let (instructions, _, _) = generate(stmts).unwrap();
         // 0: LoadImm
         // Print expands to: Push, Push, Move, LoadImm, Syscall, Pop, Pop (7 instrs)
         // Total 1 + 7 + 1 (Halt) = 9
@@ -513,7 +535,7 @@ mod tests {
     #[test]
     fn test_codegen_jump() {
         let stmts = parser::parse("goto end\n@r0 := 99\nend:\nhalt\n").unwrap();
-        let (instructions, _) = generate(stmts).unwrap();
+        let (instructions, _, _) = generate(stmts).unwrap();
         // goto end -> Jump { target: 2 } (skipping the loadimm)
         // @r0 := 99 -> LoadImm
         // end: -> (no instruction, label points to index 2)
