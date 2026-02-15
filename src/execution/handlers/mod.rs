@@ -8,3 +8,5 @@ pub mod stack;
 pub mod memory;
 pub mod memory_ext;
 pub mod io;
+pub mod float;
+pub mod bitwise_ext;

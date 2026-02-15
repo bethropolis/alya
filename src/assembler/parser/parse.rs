@@ -141,6 +141,112 @@ fn parse_line(tokens: &[Token], _line_num: usize) -> Result<Option<Statement>, S
         return Err("Expected 'memcpy @dest @src @size'".to_string());
     }
 
+    // FP Binary: fadd @dest @left @right
+    if matches!(&tokens[0], Token::Keyword(Keyword::FAdd) | Token::Keyword(Keyword::FSub) | 
+                           Token::Keyword(Keyword::FMul) | Token::Keyword(Keyword::FDiv)) {
+        if tokens.len() >= 4 {
+            if let (Token::Register(dest), Token::Register(left), Token::Register(right)) =
+                (&tokens[1], &tokens[2], &tokens[3])
+            {
+                let op = match &tokens[0] {
+                    Token::Keyword(Keyword::FAdd) => FBinOp::Add,
+                    Token::Keyword(Keyword::FSub) => FBinOp::Sub,
+                    Token::Keyword(Keyword::FMul) => FBinOp::Mul,
+                    Token::Keyword(Keyword::FDiv) => FBinOp::Div,
+                    _ => unreachable!(),
+                };
+                return Ok(Some(Statement::FBinOp {
+                    dest: dest.clone(),
+                    left: left.clone(),
+                    op,
+                    right: right.clone(),
+                }));
+            }
+        }
+        return Err(format!("Expected '{:?} @dest @left @right'", tokens[0]));
+    }
+
+    // FP Unary: fsqrt @dest @src
+    if matches!(&tokens[0], Token::Keyword(Keyword::FSqrt) | Token::Keyword(Keyword::FAbs) | 
+                           Token::Keyword(Keyword::FNeg) | Token::Keyword(Keyword::F2I) | 
+                           Token::Keyword(Keyword::I2F)) {
+        if tokens.len() >= 3 {
+            if let (Token::Register(dest), Token::Register(src)) = (&tokens[1], &tokens[2]) {
+                let op = match &tokens[0] {
+                    Token::Keyword(Keyword::FSqrt) => FUnaryOp::Sqrt,
+                    Token::Keyword(Keyword::FAbs) => FUnaryOp::Abs,
+                    Token::Keyword(Keyword::FNeg) => FUnaryOp::Neg,
+                    Token::Keyword(Keyword::F2I) => FUnaryOp::ToInt,
+                    Token::Keyword(Keyword::I2F) => FUnaryOp::ToFloat,
+                    _ => unreachable!(),
+                };
+                return Ok(Some(Statement::FUnaryOp {
+                    dest: dest.clone(),
+                    op,
+                    src: src.clone(),
+                }));
+            }
+        }
+        return Err(format!("Expected '{:?} @dest @src'", tokens[0]));
+    }
+
+    // FCmp: fcmp @left @right
+    if matches!(&tokens[0], Token::Keyword(Keyword::FCmp)) {
+        if tokens.len() >= 3 {
+            if let (Token::Register(left), Token::Register(right)) = (&tokens[1], &tokens[2]) {
+                return Ok(Some(Statement::FCmp {
+                    left: left.clone(),
+                    right: right.clone(),
+                }));
+            }
+        }
+        return Err("Expected 'fcmp @left @right'".to_string());
+    }
+
+    // Bit Unary: popcnt @dest @src
+    if matches!(&tokens[0], Token::Keyword(Keyword::PopCnt) | Token::Keyword(Keyword::Clz) | 
+                           Token::Keyword(Keyword::Ctz) | Token::Keyword(Keyword::BSwap)) {
+        if tokens.len() >= 3 {
+            if let (Token::Register(dest), Token::Register(src)) = (&tokens[1], &tokens[2]) {
+                let op = match &tokens[0] {
+                    Token::Keyword(Keyword::PopCnt) => BitUnaryOp::PopCnt,
+                    Token::Keyword(Keyword::Clz) => BitUnaryOp::Clz,
+                    Token::Keyword(Keyword::Ctz) => BitUnaryOp::Ctz,
+                    Token::Keyword(Keyword::BSwap) => BitUnaryOp::BSwap,
+                    _ => unreachable!(),
+                };
+                return Ok(Some(Statement::BitUnaryOp {
+                    dest: dest.clone(),
+                    op,
+                    src: src.clone(),
+                }));
+            }
+        }
+        return Err(format!("Expected '{:?} @dest @src'", tokens[0]));
+    }
+
+    // Bit Rot: rotl @dest @left @right
+    if matches!(&tokens[0], Token::Keyword(Keyword::RotL) | Token::Keyword(Keyword::RotR)) {
+        if tokens.len() >= 4 {
+            if let (Token::Register(dest), Token::Register(left), Token::Register(right)) =
+                (&tokens[1], &tokens[2], &tokens[3])
+            {
+                let op = match &tokens[0] {
+                    Token::Keyword(Keyword::RotL) => BitRotOp::RotL,
+                    Token::Keyword(Keyword::RotR) => BitRotOp::RotR,
+                    _ => unreachable!(),
+                };
+                return Ok(Some(Statement::BitRotOp {
+                    dest: dest.clone(),
+                    left: left.clone(),
+                    op,
+                    right: right.clone(),
+                }));
+            }
+        }
+        return Err(format!("Expected '{:?} @dest @left @right'", tokens[0]));
+    }
+
     // memset @dest @value @size
     if matches!(&tokens[0], Token::Keyword(Keyword::MemSet)) {
         if tokens.len() >= 4 {

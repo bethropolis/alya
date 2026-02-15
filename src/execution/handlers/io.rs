@@ -75,6 +75,15 @@ pub fn handle_syscall(ctx: &mut ExecutionContext, heap: &Heap, memory: &mut dyn 
                 output.push(msg);
             }
         }
+        6 => {
+            // Print Float (Arg: R1)
+            let bits = ctx.get_reg(Register::R1);
+            let value = f64::from_bits(bits);
+            if print_immediately {
+                println!("{}", value);
+            }
+            output.push(format!("{}", value));
+        }
         _ => {
             let msg = format!("Unknown syscall ID: {}", id);
             if print_immediately {

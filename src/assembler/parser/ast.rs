@@ -86,6 +86,21 @@ pub enum Statement {
 
     /// Memory set: memset @dest, @value, @size
     MemSet { dest_var: String, value_var: String, size_var: String },
+
+    /// Floating point binary op: @dest := @left fop @right
+    FBinOp { dest: String, left: String, op: FBinOp, right: String },
+
+    /// Floating point unary op: @dest := fop @src
+    FUnaryOp { dest: String, op: FUnaryOp, src: String },
+
+    /// Floating point comparison: fcmp @left, @right
+    FCmp { left: String, right: String },
+
+    /// Bitwise extension unary op: @dest := bop @src
+    BitUnaryOp { dest: String, op: BitUnaryOp, src: String },
+
+    /// Bitwise rotation: @dest := @left rot @right
+    BitRotOp { dest: String, left: String, op: BitRotOp, right: String },
 }
 
 /// Binary operators
@@ -138,4 +153,35 @@ pub enum Comparison {
 pub enum Operand {
     Variable(String),
     Immediate(u64),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FBinOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FUnaryOp {
+    Sqrt,
+    Abs,
+    Neg,
+    ToFloat, // i2f
+    ToInt,   // f2i
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BitUnaryOp {
+    PopCnt,
+    Clz,
+    Ctz,
+    BSwap,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BitRotOp {
+    RotL,
+    RotR,
 }

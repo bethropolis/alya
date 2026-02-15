@@ -48,7 +48,13 @@ impl Instruction {
             Instruction::Or { dest, left, right } |
             Instruction::Xor { dest, left, right } |
             Instruction::Shl { dest, left, right } |
-            Instruction::Shr { dest, left, right } => {
+            Instruction::Shr { dest, left, right } |
+            Instruction::FAdd { dest, left, right } |
+            Instruction::FSub { dest, left, right } |
+            Instruction::FMul { dest, left, right } |
+            Instruction::FDiv { dest, left, right } |
+            Instruction::RotL { dest, left, right } |
+            Instruction::RotR { dest, left, right } => {
                 bytes.push(dest.to_u8());
                 bytes.push(left.to_u8());
                 bytes.push(right.to_u8());
@@ -57,11 +63,26 @@ impl Instruction {
             Instruction::AddAssign { dest, src } |
             Instruction::SubAssign { dest, src } |
             Instruction::MulAssign { dest, src } |
-            Instruction::DivAssign { dest, src } => {
+            Instruction::DivAssign { dest, src } |
+            Instruction::PopCnt { dest, src } |
+            Instruction::Clz { dest, src } |
+            Instruction::Ctz { dest, src } |
+            Instruction::BSwap { dest, src } |
+            Instruction::FSqrt { dest, src } |
+            Instruction::FAbs { dest, src } |
+            Instruction::FNeg { dest, src } |
+            Instruction::F2I { dest, src } |
+            Instruction::I2F { dest, src } => {
                 bytes.push(dest.to_u8());
                 bytes.push(src.to_u8());
             }
-            
+
+            Instruction::FCmp { left, right } |
+            Instruction::Compare { left, right } => {
+                bytes.push(left.to_u8());
+                bytes.push(right.to_u8());
+            }
+
             Instruction::Load { dest, addr_reg } => {
                  bytes.push(dest.to_u8());
                  bytes.push(addr_reg.to_u8());
@@ -97,11 +118,6 @@ impl Instruction {
             Instruction::JumpIfBe { target } |
             Instruction::Call { target } => {
                 bytes.extend_from_slice(&(*target as u64).to_le_bytes());
-            }
-            
-            Instruction::Compare { left, right } => {
-                bytes.push(left.to_u8());
-                bytes.push(right.to_u8());
             }
 
             Instruction::Alloc { dest, size } => {
@@ -173,6 +189,22 @@ impl Instruction {
             Instruction::Free { .. } => Opcode::Free,
             Instruction::MemCopy { .. } => Opcode::MemCopy,
             Instruction::MemSet { .. } => Opcode::MemSet,
+            Instruction::FAdd { .. } => Opcode::FAdd,
+            Instruction::FSub { .. } => Opcode::FSub,
+            Instruction::FMul { .. } => Opcode::FMul,
+            Instruction::FDiv { .. } => Opcode::FDiv,
+            Instruction::FSqrt { .. } => Opcode::FSqrt,
+            Instruction::FAbs { .. } => Opcode::FAbs,
+            Instruction::FNeg { .. } => Opcode::FNeg,
+            Instruction::F2I { .. } => Opcode::F2I,
+            Instruction::I2F { .. } => Opcode::I2F,
+            Instruction::FCmp { .. } => Opcode::FCmp,
+            Instruction::PopCnt { .. } => Opcode::PopCnt,
+            Instruction::Clz { .. } => Opcode::Clz,
+            Instruction::Ctz { .. } => Opcode::Ctz,
+            Instruction::BSwap { .. } => Opcode::BSwap,
+            Instruction::RotL { .. } => Opcode::RotL,
+            Instruction::RotR { .. } => Opcode::RotR,
         }
     }
 
@@ -222,7 +254,9 @@ impl Instruction {
             }
             
             Opcode::Add | Opcode::Sub | Opcode::Mul | Opcode::Div | Opcode::Mod |
-            Opcode::And | Opcode::Or | Opcode::Xor | Opcode::Shl | Opcode::Shr => {
+            Opcode::And | Opcode::Or | Opcode::Xor | Opcode::Shl | Opcode::Shr |
+            Opcode::FAdd | Opcode::FSub | Opcode::FMul | Opcode::FDiv |
+            Opcode::RotL | Opcode::RotR => {
                 if bytes.len() < pos + 3 { return Err(VmError::Execution("Unexpected end of bytecode".to_string())); }
                 let dest = Register::from_u8(bytes[pos]).map_err(|e| VmError::Execution(e.to_string()))?;
                 let left = Register::from_u8(bytes[pos+1]).map_err(|e| VmError::Execution(e.to_string()))?;
@@ -240,6 +274,12 @@ impl Instruction {
                     Opcode::Xor => Instruction::Xor { dest, left, right },
                     Opcode::Shl => Instruction::Shl { dest, left, right },
                     Opcode::Shr => Instruction::Shr { dest, left, right },
+                    Opcode::FAdd => Instruction::FAdd { dest, left, right },
+                    Opcode::FSub => Instruction::FSub { dest, left, right },
+                    Opcode::FMul => Instruction::FMul { dest, left, right },
+                    Opcode::FDiv => Instruction::FDiv { dest, left, right },
+                    Opcode::RotL => Instruction::RotL { dest, left, right },
+                    Opcode::RotR => Instruction::RotR { dest, left, right },
                     _ => unreachable!(),
                 }
             }
@@ -258,12 +298,25 @@ impl Instruction {
                 }
             }
             
-            Opcode::Not => {
+            Opcode::Not | Opcode::PopCnt | Opcode::Clz | Opcode::Ctz | Opcode::BSwap |
+            Opcode::FSqrt | Opcode::FAbs | Opcode::FNeg | Opcode::F2I | Opcode::I2F => {
                 if bytes.len() < pos + 2 { return Err(VmError::Execution("Unexpected end of bytecode".to_string())); }
                 let dest = Register::from_u8(bytes[pos]).map_err(|e| VmError::Execution(e.to_string()))?;
                 let src = Register::from_u8(bytes[pos+1]).map_err(|e| VmError::Execution(e.to_string()))?;
                 pos += 2;
-                Instruction::Not { dest, src }
+                match opcode {
+                    Opcode::Not => Instruction::Not { dest, src },
+                    Opcode::PopCnt => Instruction::PopCnt { dest, src },
+                    Opcode::Clz => Instruction::Clz { dest, src },
+                    Opcode::Ctz => Instruction::Ctz { dest, src },
+                    Opcode::BSwap => Instruction::BSwap { dest, src },
+                    Opcode::FSqrt => Instruction::FSqrt { dest, src },
+                    Opcode::FAbs => Instruction::FAbs { dest, src },
+                    Opcode::FNeg => Instruction::FNeg { dest, src },
+                    Opcode::F2I => Instruction::F2I { dest, src },
+                    Opcode::I2F => Instruction::I2F { dest, src },
+                    _ => unreachable!(),
+                }
             }
             
             Opcode::Push => {
@@ -349,12 +402,16 @@ impl Instruction {
                 }
             }
             
-            Opcode::Compare => {
+            Opcode::Compare | Opcode::FCmp => {
                 if bytes.len() < pos + 2 { return Err(VmError::Execution("Unexpected end of bytecode".to_string())); }
                 let left = Register::from_u8(bytes[pos]).map_err(|e| VmError::Execution(e.to_string()))?;
                 let right = Register::from_u8(bytes[pos+1]).map_err(|e| VmError::Execution(e.to_string()))?;
                 pos += 2;
-                Instruction::Compare { left, right }
+                match opcode {
+                    Opcode::Compare => Instruction::Compare { left, right },
+                    Opcode::FCmp => Instruction::FCmp { left, right },
+                    _ => unreachable!(),
+                }
             }
 
             Opcode::Alloc => {

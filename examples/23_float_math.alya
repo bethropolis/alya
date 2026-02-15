@@ -1,0 +1,52 @@
+; Floating-Point Math Example
+; This script demonstrates FAdd, FSub, FMul, FDiv, FSqrt, and FCmp.
+
+@r0 := 10
+i2f @f0 @r0      ; f0 = 10.0
+
+@r1 := 4
+i2f @f1 @r1      ; f1 = 4.0
+
+; Addition
+fadd @f2 @f0 @f1  ; f2 = 14.0
+print_float:
+@r0 := 6         ; Syscall 6 = PrintFloat
+@r1 := @f2
+syscall
+
+; Subtraction
+fsub @f3 @f0 @f1  ; f3 = 6.0
+@r1 := @f3
+syscall
+
+; Multiplication
+fmul @f4 @f0 @f1  ; f4 = 40.0
+@r1 := @f4
+syscall
+
+; Division
+fdiv @f5 @f0 @f1  ; f5 = 2.5
+@r1 := @f5
+syscall
+
+; Square Root
+fsqrt @f6 @f1     ; f6 = sqrt(4.0) = 2.0
+@r1 := @f6
+syscall
+
+; Comparison
+fcmp @f0 @f1      ; 10.0 vs 4.0
+if @f0 > @f1 goto greater
+goto error
+
+greater:
+@r0 := 1
+print @r0         ; Print 1 if 10.0 > 4.0
+goto end
+
+error:
+@r0 := 0
+print @r0
+
+end:
+halt

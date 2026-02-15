@@ -6,7 +6,7 @@ use crate::instruction::{Instruction, Program};
 use crate::memory::Memory;
 use crate::memory::stack::Stack;
 use super::context::ExecutionContext;
-use super::handlers::{arithmetic, logic, data_move, control, stack as stack_handler, memory as memory_handler, memory_ext};
+use super::handlers::{arithmetic, logic, data_move, control, stack as stack_handler, memory as memory_handler, memory_ext, float, bitwise_ext};
 use crate::memory::heap::Heap;
 
 /// Default memory size: 64KB
@@ -265,6 +265,58 @@ impl VM {
             }
             Instruction::Return => {
                 control::handle_return(&mut self.ctx)?;
+            }
+
+            // Floating Point
+            Instruction::FAdd { dest, left, right } => {
+                float::handle_fadd(&mut self.ctx, *dest, *left, *right);
+            }
+            Instruction::FSub { dest, left, right } => {
+                float::handle_fsub(&mut self.ctx, *dest, *left, *right);
+            }
+            Instruction::FMul { dest, left, right } => {
+                float::handle_fmul(&mut self.ctx, *dest, *left, *right);
+            }
+            Instruction::FDiv { dest, left, right } => {
+                float::handle_fdiv(&mut self.ctx, *dest, *left, *right);
+            }
+            Instruction::FSqrt { dest, src } => {
+                float::handle_fsqrt(&mut self.ctx, *dest, *src);
+            }
+            Instruction::FAbs { dest, src } => {
+                float::handle_fabs(&mut self.ctx, *dest, *src);
+            }
+            Instruction::FNeg { dest, src } => {
+                float::handle_fneg(&mut self.ctx, *dest, *src);
+            }
+            Instruction::F2I { dest, src } => {
+                float::handle_f2i(&mut self.ctx, *dest, *src);
+            }
+            Instruction::I2F { dest, src } => {
+                float::handle_i2f(&mut self.ctx, *dest, *src);
+            }
+            Instruction::FCmp { left, right } => {
+                float::handle_fcmp(&mut self.ctx, *left, *right);
+            }
+
+            // Bitwise Extension
+            Instruction::PopCnt { dest, src } => {
+                bitwise_ext::handle_popcnt(&mut self.ctx, *dest, *src);
+            }
+            Instruction::Clz { dest, src } => {
+                bitwise_ext::handle_clz(&mut self.ctx, *dest, *src);
+            }
+            Instruction::Ctz { dest, src } => {
+                bitwise_ext::handle_ctz(&mut self.ctx, *dest, *src);
+            }
+            Instruction::BSwap { dest, src } => {
+                bitwise_ext::handle_bswap(&mut self.ctx, *dest, *src);
+            }
+            Instruction::RotL { dest, left, right } => {
+                bitwise_ext::handle_rotl(&mut self.ctx, *dest, *left, *right);
+            }
+            Instruction::RotR { dest, left, right } => {
+                bitwise_ext::handle_rotr(&mut self.ctx, *dest, *left, *right);
             }
 
             // System

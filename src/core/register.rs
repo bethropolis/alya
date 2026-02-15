@@ -30,11 +30,29 @@ pub enum Register {
     IP = 18, // Instruction Pointer (read-only from user perspective)
     FL = 19, // Flags
     HP = 20, // Heap Pointer
+
+    // Floating-point registers (21-36)
+    F0 = 21,
+    F1 = 22,
+    F2 = 23,
+    F3 = 24,
+    F4 = 25,
+    F5 = 26,
+    F6 = 27,
+    F7 = 28,
+    F8 = 29,
+    F9 = 30,
+    F10 = 31,
+    F11 = 32,
+    F12 = 33,
+    F13 = 34,
+    F14 = 35,
+    F15 = 36,
 }
 
 impl Register {
     /// Total number of registers
-    pub const COUNT: usize = 21;
+    pub const COUNT: usize = 37;
 
     /// Number of general-purpose registers
     pub const GP_COUNT: usize = 16;
@@ -63,6 +81,22 @@ impl Register {
             18 => Ok(Register::IP),
             19 => Ok(Register::FL),
             20 => Ok(Register::HP),
+            21 => Ok(Register::F0),
+            22 => Ok(Register::F1),
+            23 => Ok(Register::F2),
+            24 => Ok(Register::F3),
+            25 => Ok(Register::F4),
+            26 => Ok(Register::F5),
+            27 => Ok(Register::F6),
+            28 => Ok(Register::F7),
+            29 => Ok(Register::F8),
+            30 => Ok(Register::F9),
+            31 => Ok(Register::F10),
+            32 => Ok(Register::F11),
+            33 => Ok(Register::F12),
+            34 => Ok(Register::F13),
+            35 => Ok(Register::F14),
+            36 => Ok(Register::F15),
             _ => Err(RegisterError::InvalidCode(value)),
         }
     }
@@ -106,6 +140,22 @@ impl Register {
             Register::IP => "ip",
             Register::FL => "fl",
             Register::HP => "hp",
+            Register::F0 => "f0",
+            Register::F1 => "f1",
+            Register::F2 => "f2",
+            Register::F3 => "f3",
+            Register::F4 => "f4",
+            Register::F5 => "f5",
+            Register::F6 => "f6",
+            Register::F7 => "f7",
+            Register::F8 => "f8",
+            Register::F9 => "f9",
+            Register::F10 => "f10",
+            Register::F11 => "f11",
+            Register::F12 => "f12",
+            Register::F13 => "f13",
+            Register::F14 => "f14",
+            Register::F15 => "f15",
         }
     }
 }
@@ -152,7 +202,7 @@ mod tests {
 
     #[test]
     fn test_invalid_register() {
-        assert!(Register::from_u8(21).is_err());
+        assert!(Register::from_u8(37).is_err());
         assert!(Register::from_u8(255).is_err());
     }
 

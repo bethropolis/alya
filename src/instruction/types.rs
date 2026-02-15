@@ -66,6 +66,26 @@ pub enum Instruction {
     /// memset(dst_reg, value_reg, size_reg)
     MemSet { dest: Register, value: Register, size: Register },
 
+    // === Floating Point ===
+    FAdd { dest: Register, left: Register, right: Register },
+    FSub { dest: Register, left: Register, right: Register },
+    FMul { dest: Register, left: Register, right: Register },
+    FDiv { dest: Register, left: Register, right: Register },
+    FSqrt { dest: Register, src: Register },
+    FAbs { dest: Register, src: Register },
+    FNeg { dest: Register, src: Register },
+    F2I { dest: Register, src: Register },
+    I2F { dest: Register, src: Register },
+    FCmp { left: Register, right: Register },
+
+    // === Bit Manipulation ===
+    PopCnt { dest: Register, src: Register },
+    Clz { dest: Register, src: Register },
+    Ctz { dest: Register, src: Register },
+    BSwap { dest: Register, src: Register },
+    RotL { dest: Register, left: Register, right: Register },
+    RotR { dest: Register, left: Register, right: Register },
+
     // === Control Flow ===
     /// Unconditional jump to instruction index
     Jump { target: usize },

@@ -340,6 +340,58 @@ impl CodeGenerator {
                     Instruction::MemSet { dest: dest_reg, value: value_reg, size: size_reg }
                 ));
             }
+            Statement::FBinOp { dest, left, op, right } => {
+                let dest_reg = self.resolve_var(&dest)?;
+                let left_reg = self.resolve_var(&left)?;
+                let right_reg = self.resolve_var(&right)?;
+                let instr = match op {
+                    FBinOp::Add => Instruction::FAdd { dest: dest_reg, left: left_reg, right: right_reg },
+                    FBinOp::Sub => Instruction::FSub { dest: dest_reg, left: left_reg, right: right_reg },
+                    FBinOp::Mul => Instruction::FMul { dest: dest_reg, left: left_reg, right: right_reg },
+                    FBinOp::Div => Instruction::FDiv { dest: dest_reg, left: left_reg, right: right_reg },
+                };
+                self.instructions.push(InstructionSlot::Real(instr));
+            }
+            Statement::FUnaryOp { dest, op, src } => {
+                let dest_reg = self.resolve_var(&dest)?;
+                let src_reg = self.resolve_var(&src)?;
+                let instr = match op {
+                    FUnaryOp::Sqrt => Instruction::FSqrt { dest: dest_reg, src: src_reg },
+                    FUnaryOp::Abs => Instruction::FAbs { dest: dest_reg, src: src_reg },
+                    FUnaryOp::Neg => Instruction::FNeg { dest: dest_reg, src: src_reg },
+                    FUnaryOp::ToInt => Instruction::F2I { dest: dest_reg, src: src_reg },
+                    FUnaryOp::ToFloat => Instruction::I2F { dest: dest_reg, src: src_reg },
+                };
+                self.instructions.push(InstructionSlot::Real(instr));
+            }
+            Statement::FCmp { left, right } => {
+                let left_reg = self.resolve_var(&left)?;
+                let right_reg = self.resolve_var(&right)?;
+                self.instructions.push(InstructionSlot::Real(
+                    Instruction::FCmp { left: left_reg, right: right_reg }
+                ));
+            }
+            Statement::BitUnaryOp { dest, op, src } => {
+                let dest_reg = self.resolve_var(&dest)?;
+                let src_reg = self.resolve_var(&src)?;
+                let instr = match op {
+                    BitUnaryOp::PopCnt => Instruction::PopCnt { dest: dest_reg, src: src_reg },
+                    BitUnaryOp::Clz => Instruction::Clz { dest: dest_reg, src: src_reg },
+                    BitUnaryOp::Ctz => Instruction::Ctz { dest: dest_reg, src: src_reg },
+                    BitUnaryOp::BSwap => Instruction::BSwap { dest: dest_reg, src: src_reg },
+                };
+                self.instructions.push(InstructionSlot::Real(instr));
+            }
+            Statement::BitRotOp { dest, left, op, right } => {
+                let dest_reg = self.resolve_var(&dest)?;
+                let left_reg = self.resolve_var(&left)?;
+                let right_reg = self.resolve_var(&right)?;
+                let instr = match op {
+                    BitRotOp::RotL => Instruction::RotL { dest: dest_reg, left: left_reg, right: right_reg },
+                    BitRotOp::RotR => Instruction::RotR { dest: dest_reg, left: left_reg, right: right_reg },
+                };
+                self.instructions.push(InstructionSlot::Real(instr));
+            }
         }
         Ok(())
     }
@@ -419,6 +471,22 @@ fn try_parse_register_name(name: &str) -> Option<Register> {
         "hp" => Some(Register::HP),
         "ip" => Some(Register::IP),
         "fl" => Some(Register::FL),
+        "f0" => Some(Register::F0),
+        "f1" => Some(Register::F1),
+        "f2" => Some(Register::F2),
+        "f3" => Some(Register::F3),
+        "f4" => Some(Register::F4),
+        "f5" => Some(Register::F5),
+        "f6" => Some(Register::F6),
+        "f7" => Some(Register::F7),
+        "f8" => Some(Register::F8),
+        "f9" => Some(Register::F9),
+        "f10" => Some(Register::F10),
+        "f11" => Some(Register::F11),
+        "f12" => Some(Register::F12),
+        "f13" => Some(Register::F13),
+        "f14" => Some(Register::F14),
+        "f15" => Some(Register::F15),
         _ => None,
     }
 }

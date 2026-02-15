@@ -1,0 +1,33 @@
+; Bit Manipulation Example
+; Demonstrates popcnt, clz, ctz, bswap, rotl, rotr.
+
+; Value: 0b1011 (11)
+@r0 := 11
+popcnt @r1 @r0    ; popcnt(11) = 3
+print @r1
+
+; Value: 0b00...0001 (1)
+@r0 := 1
+clz @r1 @r0       ; clz(1) = 63
+print @r1
+
+; Value: 0b10...0000 (0x8000000000000000)
+@r0 := 0x8000000000000000
+ctz @r1 @r0       ; ctz(0x80...) = 63
+print @r1
+
+; Byte Swap
+@r0 := 0x1122334455667788
+bswap @r1 @r0     ; should be 0x8877665544332211
+debug @r1
+
+; Rotation
+@r0 := 1
+@r1 := 1
+rotl @r2 @r0 @r1  ; rotl(1, 1) = 2
+print @r2
+
+rotr @r3 @r2 @r1  ; rotr(2, 1) = 1
+print @r3
+
+halt
